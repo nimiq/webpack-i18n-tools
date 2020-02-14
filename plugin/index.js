@@ -1,6 +1,11 @@
 const fs = require('fs');
-const path = require('path');
 const glob = require("glob");
+
+const PREFIX_BUILD = /.*exports=/g;
+const SUFFIX_BUILD = /}}]\);\s.*/g;
+
+const PREFIX_SERVE = /[\w\W]+exports = /g;
+const SUFFIX_SERVE = /\n{2}\/\*{3}\/ }\)[\W\w]+/g;
 
 class PoLoaderOptimizer {
 
@@ -13,13 +18,22 @@ class PoLoaderOptimizer {
     parseFile(content) {
         const stringContent = content.toString();
 
+        let prefix = '', suffix = '';
+        if (!stringContent.match(PREFIX_BUILD)) {
+            prefix = PREFIX_SERVE;
+            suffix = SUFFIX_SERVE;
+        } else {
+            prefix = PREFIX_BUILD;
+            suffix = SUFFIX_BUILD;
+        }
+
         return {
-            prefix: stringContent.match(/.*exports=/g)[0],
-            suffix: stringContent.match(/}}]\);.*/g)[0],
+            prefix: stringContent.match(prefix)[0],
+            suffix: stringContent.match(suffix)[0],
             content: JSON.parse(
                 stringContent
-                    .replace(/.*exports=/g, '')
-                    .replace(/}}]\);\s.*/g, '')
+                    .replace(prefix, '')
+                    .replace(suffix, '')
                     .replace(/(^{|",)(\w+):/g, '$1"$2":')
             ),
         };
@@ -31,7 +45,7 @@ class PoLoaderOptimizer {
             return;
         }
 
-        // replace long string keys by numbers in po files
+        // replace long string keys by numbers in po objects
         (() => {
             const tmp = {};
             Object.values(this.originalPoFile.content).map((value, i) => {
@@ -50,7 +64,7 @@ class PoLoaderOptimizer {
             poFile.content = tmp;
         });
 
-        // replace the keys from the js files too
+        // replace the keys from the js files and save file
         const files = glob.sync('./dist/**/*.js');
 
         const entries = Object.entries(this.originalPoFile.content);
@@ -67,7 +81,7 @@ class PoLoaderOptimizer {
             fs.writeFileSync(files[i], content);
         }
 
-        // replace long string keys by numbers in po files
+        // save po files
         fs.writeFileSync(
             "./dist/" + this.originalPoFile.filename,
             this.originalPoFile.prefix + JSON.stringify(this.originalPoFile.content) + this.originalPoFile.suffix
