@@ -1,13 +1,14 @@
+const fs = require('fs');
+const path = require('path');
+const parse5 = require('parse5');
+const gettext = require('gettext-extractor');
+const GettextExtractor = gettext.GettextExtractor;
+const JsExtractors = gettext.JsExtractors;
+const Readable = require('stream').Readable;
+const glob = require("glob");
+const queue = require('queue');
+
 module.exports = async function(writeToFile = true) {
-    const fs = require('fs');
-    const path = require('path');
-    const parse5 = require('parse5');
-    const gettext = require('gettext-extractor');
-    const GettextExtractor = gettext.GettextExtractor;
-    const JsExtractors = gettext.JsExtractors;
-    const Readable = require('stream').Readable;
-    const glob = require("glob");
-    const queue = require('queue');
 
     const extractor = new GettextExtractor();
 
@@ -177,7 +178,7 @@ module.exports = async function(writeToFile = true) {
 
     if (!outputFile) {
         console.error(
-            'The path for the output file must be provided.',
+            'The path for the output file must be provided and valid.',
             'For example: $> node ./node_modules/translation-key-extractor/index.js ./src/i18n/en.po',
         );
         process.exit(1);
