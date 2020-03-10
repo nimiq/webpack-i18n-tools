@@ -42,6 +42,7 @@ class PoLoaderOptimizer {
     done(statsData, cb) {
         this.root = this.compiler.options.context;
         if (statsData.hasErrors()) {
+            cb();
             return;
         }
 
@@ -116,7 +117,7 @@ class PoLoaderOptimizer {
         this.compiler = compiler;
         process.stdout.write('\n');
 
-        compiler.hooks.assetEmitted.tapAsync('PoLoaderOptimizer', this.assetEmitted.bind(this));
+        compiler.hooks.assetEmitted.tapAsync('PoLoaderOptimizer', this.assetEmitted.bind(this)); // handle if no 'asset emmited' event
         compiler.hooks.done.tapAsync('PoLoaderOptimizer', this.done.bind(this));
 	}
 }
