@@ -164,7 +164,11 @@ module.exports = async function(writeToFile = true) {
     const parser = extractor
         .createJsParser([
             // Place all the possible expressions to extract here:
-            JsExtractors.callExpression(['$t', '$tc', '$te', '[this].$t', 'i18n.t', 'root.$t', 'context.root.$t'], {
+            JsExtractors.callExpression([
+                '$t', '[this].$t', 'i18n.t', 'root.$t', 'context.root.$t',
+                '$tc', '[this].$tc', 'i18n.tc', 'root.$tc', 'context.root.$tc',
+                '$te', '[this].$te', 'i18n.te', 'root.$te', 'context.root.$te',
+            ], {
                 arguments: {
                     text: 0,
                 }
