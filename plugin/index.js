@@ -41,7 +41,15 @@ class PoLoaderOptimizer {
 
     done(statsData, cb) {
         this.root = this.compiler.options.context;
+
+        // if there is webpack / other plugins errors
         if (statsData.hasErrors()) {
+            cb();
+            return;
+        }
+
+        // if it's not a BUILD but a SERVE (so no dist folder) then no i18n optimization applied
+        if (!fs.existsSync('./dist/')) {
             cb();
             return;
         }
