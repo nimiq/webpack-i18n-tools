@@ -75,7 +75,6 @@ class PoLoaderOptimizer {
 
         // replace the keys from the js files and save file
         const files = glob.sync('./dist/**/*.js');
-
         const entries = Object.entries(this.originalPoFile.content);
 
         let i = files.length;
@@ -83,7 +82,7 @@ class PoLoaderOptimizer {
             let content = fs.readFileSync(files[i], 'utf8');
 
             for (const [k, v] of entries) {
-                const regex = new RegExp(`\\(\\s*["'](${v})["']`, 'g');
+                const regex = new RegExp(`[$.]t[ec]?\\(\\s*["'](${v})["']`, 'g');
                 content = content.replace(regex, (match, p1) => match.replace(p1, `${k}`));
             }
 
@@ -123,7 +122,6 @@ class PoLoaderOptimizer {
 
 	apply(compiler) {
         this.compiler = compiler;
-        process.stdout.write('\n');
 
         compiler.hooks.assetEmitted.tapAsync('PoLoaderOptimizer', this.assetEmitted.bind(this)); // handle if no 'asset emmited' event
         compiler.hooks.done.tapAsync('PoLoaderOptimizer', this.done.bind(this));
