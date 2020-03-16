@@ -82,7 +82,8 @@ class PoLoaderOptimizer {
             let content = fs.readFileSync(files[i], 'utf8');
 
             for (const [k, v] of entries) {
-                const regex = new RegExp(`[$.]t[ec]?\\(\\s*["'](${v})["']`, 'g');
+                const searchString = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`[$.]t[ec]?\\(\\s*["'](${searchString})["']`, 'g');
                 content = content.replace(regex, (match, p1) => match.replace(p1, `${k}`));
             }
 
