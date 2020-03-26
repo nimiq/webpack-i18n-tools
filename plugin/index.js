@@ -13,6 +13,7 @@ class PoLoaderOptimizer {
         this.compiler = null;
         this.originalPoFile = null;
         this.poFiles = [];
+        this.assetEmittedSupported = false;
     }
 
     parseFile(content) {
@@ -42,7 +43,14 @@ class PoLoaderOptimizer {
     done(statsData, cb) {
         this.root = this.compiler.options.context;
 
-        // if there is webpack / other plugins errors
+        if (!this.assetEmittedSupported) {
+            const files = glob.sync('./dist/**/*.js');
+            files.forEach(filepath => {
+                this.assetEmitted(filepath.replace(/.*dist\//g, ''), fs.readFileSync(filepath));
+            });
+        }
+
+        // if there's webpack / plugin errors
         if (statsData.hasErrors()) {
             cb();
             return;
@@ -118,13 +126,18 @@ class PoLoaderOptimizer {
                 ...this.parseFile(content)
             });
         }
-        cb();
+        if (cb) {
+            cb();
+        }
     }
 
 	apply(compiler) {
         this.compiler = compiler;
 
-        compiler.hooks.assetEmitted.tapAsync('PoLoaderOptimizer', this.assetEmitted.bind(this)); // handle if no 'asset emmited' event
+        if (compiler.hooks.assetEmitted) {
+            this.assetEmittedSupported = true;
+            compiler.hooks.assetEmitted.tapAsync('PoLoaderOptimizer', this.assetEmitted.bind(this));
+        }
         compiler.hooks.done.tapAsync('PoLoaderOptimizer', this.done.bind(this));
 	}
 }
