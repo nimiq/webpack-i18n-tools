@@ -68,6 +68,11 @@ concat-map@0.0.1:
   resolved "https://registry.yarnpkg.com/concat-map/-/concat-map-0.0.1.tgz#d8a96bd77fd68df7793a73036a3ba0d5405d477b"
   integrity sha1-2Klr13/Wjfd5OnMDajug1UBdR3s=
 
+convert-to-object@^0.0.4:
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/convert-to-object/-/convert-to-object-0.0.4.tgz#e42f59d87ebba7184f13bef537369c2bea3661bf"
+  integrity sha512-v9b0abfO/zft9YXqHthPjsqiP5GZFxG/GONStFd5EIzzW7o9BErnMuuvTSLOO1NYpDyJy7Dza20zOXdCsGIQUw==
+
 css-selector-parser@^1.3:
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/css-selector-parser/-/css-selector-parser-1.3.0.tgz#5f1ad43e2d8eefbfdc304fcd39a521664943e3eb"
