@@ -161,22 +161,6 @@ module.exports = async function(writeToFile = true) {
         });
     };
 
-    const parser = extractor
-        .createJsParser([
-            // Place all the possible expressions to extract here:
-            JsExtractors.callExpression([
-                '$t', '[this].$t', 'i18n.t', 'root.$t', 'context.root.$t', '[this].$root.$t',
-                '$tc', '[this].$tc', 'i18n.tc', 'root.$tc', 'context.root.$tc', '[this].$root.$tc',
-                '$te', '[this].$te', 'i18n.te', 'root.$te', 'context.root.$te', '[this].$root.$te',
-            ], {
-                arguments: {
-                    text: 0,
-                }
-            })
-        ]);
-
-    parser.parseFilesGlob('./src/**/*.[js|ts]');
-
     const q = queue({ concurrency: 1 });
     const outputFile = process.argv[2];
 
@@ -188,8 +172,28 @@ module.exports = async function(writeToFile = true) {
         process.exit(1);
     }
 
-    const files = glob.sync("./src/**/*.vue");
+    const parser = extractor.createJsParser([
+        // Place all the possible expressions to extract here:
+        JsExtractors.callExpression([
+            '$t', '[this].$t', 'i18n.t', 'root.$t', 'context.root.$t', '[this].$root.$t',
+            '$tc', '[this].$tc', 'i18n.tc', 'root.$tc', 'context.root.$tc', '[this].$root.$tc',
+            '$te', '[this].$te', 'i18n.te', 'root.$te', 'context.root.$te', '[this].$root.$te',
+        ], {
+            arguments: {
+                text: 0,
+            }
+        }),
+        JsExtractors.callExpression([
+            'NimiqI18n.$t'
+        ], {
+            arguments: {
+                text: 1,
+            }
+        })
+    ]);
+    parser.parseFilesGlob('./src/**/*.[js|ts]');
 
+    const files = glob.sync("./src/**/*.vue");
     q.push(...files.map(filename => (cb) => parseVueFile(filename).then(snipps => {
         snipps.forEach(({ code, line }) => parser.parseString(
             code,

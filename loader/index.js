@@ -10,13 +10,11 @@ module.exports = function(source) {
         options.format = 'mf';
     }
 
-    const json = po2json.parse(source, options);
-
-    for (const key in json) {
-        if (!json[key]) {
-            json[key] = key;
-        }
+    if (!('fallback-to-msgid' in options)) {
+        options['fallback-to-msgid'] = true;
     }
+
+    const json = po2json.parse(source, options);
 
     return 'module.exports = ' +
         JSON.stringify(json)
