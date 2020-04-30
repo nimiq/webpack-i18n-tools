@@ -1,6 +1,6 @@
 const fs = require('fs');
 const glob = require('glob');
-const toObject = require('convert-to-object');
+const JSON5 = require('json5');
 
 const PREFIX_BUILD = /.*exports=/g;
 const SUFFIX_BUILD = /}}]\);\s.*/g;
@@ -32,7 +32,7 @@ class PoLoaderOptimizer {
         return {
             prefix: stringContent.match(prefix)[0],
             suffix: stringContent.match(suffix)[0],
-            content: toObject(
+            content: JSON5.parse(
                 stringContent
                     .replace(prefix, '')
                     .replace(suffix, '')
