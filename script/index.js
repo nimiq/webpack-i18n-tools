@@ -72,10 +72,7 @@ module.exports = async function(writeToFile = true) {
                 }
             });
 
-            readStream.on('open', () => {
-                readStream.pipe(parser);
-            });
-
+            readStream.on('open', () => readStream.pipe(parser));
             readStream.on('end', () => {
                 const content = fs.readFileSync(filename, {
                     encoding: 'utf8',
@@ -119,6 +116,15 @@ module.exports = async function(writeToFile = true) {
                                 line: location.attrs[attrs[i].name].line,
                             });
                         }
+                        // vue-i18n component interpolation, path attr
+                        if (name === 'i18n' && attrs[i].name === 'path') {
+                            snippets.push({
+                                filename,
+                                code: attrs[i].value,
+                                line: location.attrs[attrs[i].name].line,
+                                isString: true,
+                            });
+                        }
                     }
                 });
 
@@ -149,9 +155,7 @@ module.exports = async function(writeToFile = true) {
 
                 const s = new Readable;
 
-                s.on('end', () => {
-                    resolve(snippets);
-                });
+                s.on('end', () => resolve(snippets));
 
                 s.push(template);
                 s.push(null);
@@ -195,15 +199,19 @@ module.exports = async function(writeToFile = true) {
 
     const files = glob.sync("./src/**/*.vue");
     q.push(...files.map(filename => (cb) => parseVueFile(filename).then(snipps => {
-        snipps.forEach(({ code, line }) => parser.parseString(
-            code,
-            filename,
-            { lineNumberStart: line },
-        ));
+        snipps.forEach(({ code, line, isString }) => {
+            if (isString) {
+                code = `$t(\`${code}\`)`;
+            }
+            parser.parseString(
+                code,
+                filename,
+                { lineNumberStart: line },
+            )
+        });
 
         cb();
     })));
-
 
     const err = await new Promise((resolve, reject) =>
         q.start((err) => err ? reject(err) : resolve())
