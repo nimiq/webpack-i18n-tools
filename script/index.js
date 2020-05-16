@@ -188,7 +188,7 @@ module.exports = async function(writeToFile = true) {
             }
         }),
         JsExtractors.callExpression([
-            'NimiqI18n.$t'
+            'I18nMixin.$t'
         ], {
             arguments: {
                 text: 1,
