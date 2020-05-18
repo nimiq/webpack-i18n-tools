@@ -195,7 +195,7 @@ module.exports = async function(writeToFile = true) {
             }
         })
     ]);
-    parser.parseFilesGlob('./src/**/*.[js|ts]');
+    parser.parseFilesGlob('./src/**/*.{ts,js}');
 
     const files = glob.sync("./src/**/*.vue");
     q.push(...files.map(filename => (cb) => parseVueFile(filename).then(snipps => {
