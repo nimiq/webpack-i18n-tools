@@ -100,7 +100,13 @@ class PoLoaderOptimizer {
                     + ')' // end non-capturing group
                     + `["'\`](${searchString})["'\`]`, // for the language string
                     'g');
-                content = content.replace(regex, (match, p1) => match.replace(p1, k));
+                content = content.replace(regex, (match, searchString) => {
+                    const searchStringPosition = match.indexOf(searchString);
+                    // replace by number without enclosing string delimiters
+                    return match.substring(0, searchStringPosition - 1)
+                        + k
+                        + match.substring(searchStringPosition + searchString.length + 1);
+                });
             }
 
             fs.writeFileSync(files[i], content);
