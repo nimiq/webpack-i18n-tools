@@ -91,9 +91,15 @@ class PoLoaderOptimizer {
             let content = fs.readFileSync(files[i], 'utf8');
 
             for (const [k, v] of entries) {
-                const searchString = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`[$.]t[ec]?\\(\\s*["'](${searchString})["']`, 'g');
-                content = content.replace(regex, (match, p1) => match.replace(p1, `${k}`));
+                const searchString = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex special chars
+                const regex = new RegExp('(?:' // non capturing group
+                    + '[$.]t[ec]?\\(\\s*' // search for $t / $tc / $te calls
+                    + '|' // or
+                    + 'i18n.*?attrs:.*?path:\\s*' // for i18n interpolation components' paths
+                    + ')' // end non-capturing group
+                    + `["'\`](${searchString})["'\`]`, // for the language string
+                    'g');
+                content = content.replace(regex, (match, p1) => match.replace(p1, k));
             }
 
             fs.writeFileSync(files[i], content);
