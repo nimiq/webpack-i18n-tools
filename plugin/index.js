@@ -91,7 +91,8 @@ class PoLoaderOptimizer {
             let content = fs.readFileSync(files[i], 'utf8');
 
             for (const [k, v] of entries) {
-                const searchString = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex special chars
+                const searchString = v.replace(/\n/g, '\\n') // Search actual newlines as \n escape sequences in code.
+                    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars.
                 const regex = new RegExp('(?:' // non capturing group
                     + '[$.]t[ec]?\\(\\s*' // search for $t / $tc / $te calls
                     + '|' // or
