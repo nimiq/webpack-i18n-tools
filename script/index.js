@@ -93,7 +93,6 @@ module.exports = async function(writeToFile = true) {
 
                 if (sectionLocations.script) {
                     snippets.push({
-                        filename,
                         code: content.substr(
                             sectionLocations.script.start,
                             sectionLocations.script.end - sectionLocations.script.start,
@@ -111,18 +110,20 @@ module.exports = async function(writeToFile = true) {
                         // We're only looking for data bindings, events and directives
                         if (attrs[i].name.match(/^(:|@|v-)/)) {
                             snippets.push({
-                                filename,
                                 code: attrs[i].value,
                                 line: location.attrs[attrs[i].name].line,
                             });
                         }
                         // vue-i18n component interpolation, path attr
-                        if (name === 'i18n' && attrs[i].name === 'path') {
+                        if (name === 'i18n' && (attrs[i].name === 'path' || attrs[i].name === ':path')) {
+                            // wrap the path / key in a js snippet including $t for detection by the javascript parser
+                            const stringDelimiter = attrs[i].name === 'path'
+                                ? ['"', '\'', '`'].find((delimiter) => !attrs[i].value.includes(delimiter))
+                                : ''; // none required as the value is already a js snippet with strings marked as such
+                            const code = `$t(${stringDelimiter}${attrs[i].value}${stringDelimiter})`;
                             snippets.push({
-                                filename,
-                                code: attrs[i].value,
+                                code,
                                 line: location.attrs[attrs[i].name].line,
-                                isString: true,
                             });
                         }
                     }
@@ -199,10 +200,7 @@ module.exports = async function(writeToFile = true) {
 
     const files = glob.sync("./src/**/*.vue");
     q.push(...files.map(filename => (cb) => parseVueFile(filename).then(snipps => {
-        snipps.forEach(({ code, line, isString }) => {
-            if (isString) {
-                code = `$t(\`${code}\`)`;
-            }
+        snipps.forEach(({ code, line }) => {
             parser.parseString(
                 code,
                 filename,
