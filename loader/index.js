@@ -16,8 +16,5 @@ module.exports = function(source) {
 
     const json = po2json.parse(source, options);
 
-    return 'module.exports = ' +
-        JSON.stringify(json)
-            .replace(/\u2028/g, '\\u2028')
-            .replace(/\u2029/g, '\\u2029');
-}
+    return 'module.exports = ' + JSON.stringify(json);
+};
