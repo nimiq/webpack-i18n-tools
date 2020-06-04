@@ -12,7 +12,8 @@
     "loader-utils": "^1.2.3",
     "parse5": "^4.*.*",
     "po2json": "^0.4.5",
-    "queue": "^6.0.1"
+    "queue": "^6.0.1",
+    "webpack-sources": "^1.4.3"
   },
   "devDependencies": {}
 }
