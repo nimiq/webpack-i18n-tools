@@ -170,7 +170,7 @@ class I18nOptimizerPlugin {
         const usageRegexs = translationKeys.map((translationKey) => new RegExp(
             `(${usageRegexPrefixPart})` // prefix
             + `(${this.generateKeyRegex(translationKey, false)})`, // translation key
-            'g'));
+            'gs'));
 
         for (const assetInfo of assetInfos) {
             const source = new ReplaceSource(assetInfo.source);
@@ -207,11 +207,11 @@ class I18nOptimizerPlugin {
     }
 
     parseLanguageFile(code) {
-        const PREFIX_BUILD = /^.*exports=/;
-        const SUFFIX_BUILD = /}}]\);.*$/;
+        const PREFIX_BUILD = /^.*?exports=/s;
+        const SUFFIX_BUILD = /}}]\);.*$/s;
 
-        const PREFIX_SERVE = /^[\w\W]+exports = /;
-        const SUFFIX_SERVE = /\n{2}\/\*{3}\/ }\)[\W\w]+$/;
+        const PREFIX_SERVE = /^.*?exports = /s;
+        const SUFFIX_SERVE = /\n{2}\/\*{3}\/ }\).*$/s;
 
         let prefix = '', suffix = '';
         if (!code.match(PREFIX_BUILD)) {
