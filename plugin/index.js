@@ -186,7 +186,8 @@ class I18nOptimizerPlugin {
                     source.replace(
                         translationKeyPosition, // start, inclusive
                         translationKeyPosition + matchedTranslationKey.length - 1, // end, inclusive
-                        i.toString(), // replacement
+                        // replacement. 0 requires string delimiter as 0 otherwise treated as falsy / missing key
+                        i === 0 ? '"0"' : i.toString(),
                     );
                 }
             }
