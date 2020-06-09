@@ -65,7 +65,7 @@ class I18nOptimizerPlugin {
         const languageFileInfos = [];
         const otherAssetInfos = [];
         for (const [filename, source] of Object.entries(assets)) {
-            if (!filename.endsWith('.js')) continue;
+            if (!filename.endsWith('.js') || filename.includes('chunk-vendors')) continue;
             if (/-po(?:-legacy)?(?:\.[^.]*)?\.js$/.test(filename)) {
                 const languageFileInfo = {
                     filename,
