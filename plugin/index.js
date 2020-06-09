@@ -1,5 +1,3 @@
-const fs = require('fs');
-const glob = require('glob');
 const JSON5 = require('json5');
 const { ReplaceSource } = require('webpack-sources');
 
@@ -8,8 +6,7 @@ const { ReplaceSource } = require('webpack-sources');
  * preserving proper sourcemaps.
  *
  * Note that we use a plugin and not a webpack loader as loaders should not depend on other assets and plugins are
- * generally more powerful. We also take advantage of code minification concatenating translation keys which we use to
- * normalize the keys in the source code before replacing them.
+ * generally more powerful.
  *
  * Useful documentation for writing webpack plugins (listed in recommended read order):
  * - Overview over assets, chunks, modules and dependencies: https://webpack.js.org/contribute/plugin-patterns/
@@ -42,7 +39,7 @@ class I18nOptimizerPlugin {
         compiler.hooks.compilation.tap(this.constructor.name, compilation => {
             if (compilation.hooks.processAssets) {
                 // Webpack >= 5
-                // TODO This is untested. Need to check whether code minification runs before our turn.
+                // TODO This is untested.
                 compilation.hooks.processAssets.tap(
                     {
                         name: this.constructor.name,
@@ -52,9 +49,7 @@ class I18nOptimizerPlugin {
                 );
             } else {
                 // Webpack < 5
-                // We want to run after code minification by other plugins, however note that the optimizeAssets hook is
-                // too late as it is invoked after sourcemap generation, therefore we use afterOptimizeChunkAssets.
-                compilation.hooks.afterOptimizeChunkAssets.tap(
+                compilation.hooks.optimizeChunkAssets.tap(
                     this.constructor.name,
                     () => this.optimizeAssets(compilation),
                 );
@@ -87,124 +82,139 @@ class I18nOptimizerPlugin {
 
         if (!referenceLanguageFileInfo) return;
 
-        const fallbackTranslations = JSON5.parse(referenceLanguageFileInfo.translationsCode);
-        const translationKeys = Object.keys(fallbackTranslations);
+        const translationKeyIndexMap = {};
+        const fallbackTranslations = {};
+        Object.entries(JSON5.parse(referenceLanguageFileInfo.translationsCode)).forEach(([key, value], index) => {
+            const normalizedKey = this.normalizeString(key);
+            translationKeyIndexMap[normalizedKey] = index;
+            fallbackTranslations[normalizedKey] = this.normalizeString(value);
+        });
 
-        this.optimizeLanguageFiles(languageFileInfos, translationKeys, fallbackTranslations);
-        this.optimizeTranslationUsages(otherAssetInfos, translationKeys);
+        this.optimizeLanguageFiles(languageFileInfos, translationKeyIndexMap, fallbackTranslations);
+        this.optimizeTranslationUsages(otherAssetInfos, translationKeyIndexMap);
 
         for (const { filename, source } of [...languageFileInfos, ...otherAssetInfos]) {
             this.updateAsset(compilation, filename, source);
         }
     }
 
-    optimizeLanguageFiles(languageFileInfos, translationKeys, fallbackTranslations) {
+    optimizeLanguageFiles(languageFileInfos, translationKeyIndexMap, fallbackTranslations) {
         // Replace the keys of the translations object by shorter numbers and fill in fallback translations where no
         // translation is available.
-        const entryRegexs = translationKeys.map((translationKey) => new RegExp(
-            `(${this.generateKeyRegex(translationKey, true)})` // translation key
-                + '(\\s*:\\s*)' // double colon
-                + '("(?:[^"]|\\")*"|\'(?:[^\']|\\\')*\'|`(?:[^`]|\\`)*`)', // translation with string delimiters
-        ));
+        const entryRegex = new RegExp(
+            `([^\\s"'\`]+?|${this.matchString()})` // translation key (either as direct object key or string key)
+            + '(\\s*:\\s*)' // double colon
+            + `(${this.matchString()})`, // translation with string delimiters
+            'g',
+        );
 
         for (const languageFileInfo of languageFileInfos) {
+            const missingTranslations = new Set(Object.keys(translationKeyIndexMap));
             const { translationsCode, prefix } = languageFileInfo;
-            // Make code modifications using ReplaceSource to automatically update sourcemaps
-            const source = new ReplaceSource(languageFileInfo.source);
-
+            // Make code modifications using ReplaceSource to automatically update sourcemaps.
             // Note that all positions are relative to the original source, regardless of replacements.
-            const insertionPosition = prefix.length + translationsCode.length - 1; // before } of translations object
-            let hasTrailingComma = translationsCode[translationsCode.length - 2] === ',';
+            const source = new ReplaceSource(languageFileInfo.source);
+            let match;
 
-            for (let i = 0; i < translationKeys.length; ++i) {
-                const translationKey = translationKeys[i];
-                const entryRegex = entryRegexs[i];
-                const fallbackTranslation = (fallbackTranslations[translationKey] || translationKey)
-                    .replace(/\n/g, '\\n');
+            while ((match = entryRegex.exec(translationsCode)) !== null) {
+                const [, matchedTranslationKey, matchedDoubleColon, matchedTranslation] = match;
+                const matchPosition = prefix.length + match.index;
+                const translationKey = this.normalizeString(matchedTranslationKey);
+                const translationKeyIndex = translationKeyIndexMap[translationKey];
+                if (translationKeyIndex === undefined) continue;
+                missingTranslations.delete(translationKey);
 
-                const match = translationsCode.match(entryRegex);
-                if (match !== null) {
-                    const [, matchedTranslationKey, matchedDoubleColon, matchedTranslation] = match;
-                    const matchPosition = prefix.length + match.index;
+                source.replace(
+                    matchPosition, // start, inclusive
+                    matchPosition + matchedTranslationKey.length - 1, // end, inclusive
+                    translationKeyIndex.toString(), // Replacement. No need for extra handling of 0 here.
+                );
+
+                // Use fallback translation if translation is empty (consist only of string separators). Note that this
+                // case does not actually appear when using the po loader as it automatically assigns the key as
+                // translation if the translation is empty.
+                if (matchedTranslation.length === 2) {
+                    const fallbackTranslation = fallbackTranslations[translationKey] || translationKey;
+                    const translationPosition = matchPosition + matchedTranslationKey.length
+                        + matchedDoubleColon.length;
                     source.replace(
-                        matchPosition, // start, inclusive
-                        matchPosition + matchedTranslationKey.length - 1, // end, inclusive
-                        i.toString(), // replacement
+                        translationPosition, // start, inclusive
+                        translationPosition + matchedTranslation.length - 1, // end, inclusive,
+                        `"${fallbackTranslation}"`, // replacement
                     );
-
-                    // Use fallback translation if translation is empty (consist only of string separators). Note that
-                    // this case does not actually appear when using the po loader as it automatically assigns the key
-                    // as translation if the translation is empty.
-                    if (matchedTranslation.length === 2) {
-                        const translationPosition = matchPosition + matchedTranslationKey.length
-                            + matchedDoubleColon.length;
-                        source.replace(
-                            translationPosition, // start, inclusive
-                            translationPosition + matchedTranslation.length - 1, // end, inclusive,
-                            `"${fallbackTranslation}"`, // replacement
-                        );
-                    }
-                } else {
-                    // Entry not found. create it with fallback translation.
-                    source.insert(
-                        insertionPosition,
-                        `${hasTrailingComma ? '' : ','}${i}:"${fallbackTranslation}"`,
-                    );
-                    hasTrailingComma = false;
                 }
+            }
+
+            // Add fallback translations for missing translations
+            const insertionPosition = prefix.length + translationsCode.length - 1; // before } of translations object
+            let hasTrailingComma = /,\s*};?$/.test(translationsCode);
+            for (const missingTranslationKey of missingTranslations) {
+                const translationKeyIndex = translationKeyIndexMap[missingTranslationKey]; // guaranteed to exist
+                const fallbackTranslation = fallbackTranslations[missingTranslationKey] || missingTranslationKey;
+                source.insert(
+                    insertionPosition,
+                    `${hasTrailingComma ? '' : ','}${translationKeyIndex}:"${fallbackTranslation}"`,
+                );
+                hasTrailingComma = false;
             }
 
             languageFileInfo.source = source;
         }
     }
 
-    optimizeTranslationUsages(assetInfos, translationKeys) {
+    optimizeTranslationUsages(assetInfos, translationKeyIndexMap) {
         // Replace translation keys in translation usages with the shorter numbers compatible with the optimized
         // language files.
         const usageRegexPrefixPart = '[$.]t[ec]?\\s*\\(\\s*' // Search for $t / $tc / $te calls
             + '|' // or
             // for i18n interpolation components' paths in vue-loader compiled template render functions
-            + `${this.generateKeyRegex('i18n', false)}\\s*,.*?` // detected within the i18n component
-            + `${this.generateKeyRegex('attrs', true)}\\s*:.*?` // attributes which contain
-            + `${this.generateKeyRegex('path', true)}\\s*:\\s*`; // the path which is the translation key
-        const usageRegexs = translationKeys.map((translationKey) => new RegExp(
-            `(${usageRegexPrefixPart})` // prefix
-            + `(${this.generateKeyRegex(translationKey, false)})`, // translation key
-            'gs'));
+            + `${this.matchString('i18n')}\\s*,.*?` // detected within the i18n component
+            + `(?:attrs|${this.matchString('attrs')})\\s*:.*?` // attributes which contain
+            + `(?:path|${this.matchString('path')})\\s*:\\s*`; // the path which is the translation key
+        // Match the translation key which is a (potentially concatenated) string
+        const usageRegexTranslationKeyPart = `(?:${this.matchString()}\\s*\\+\\s*)*${this.matchString()}`;
+        const usageRegex = new RegExp(`(${usageRegexPrefixPart})(${usageRegexTranslationKeyPart})`, 'gs');
 
         for (const assetInfo of assetInfos) {
             const source = new ReplaceSource(assetInfo.source);
             // note that all replacement positions are relative to initialCode, regardless of other replacements
             const initialCode = source.source();
-            for (let i = 0; i < translationKeys.length; ++i) {
-                const usageRegex = usageRegexs[i];
-                let match;
+            let match;
 
-                while ((match = usageRegex.exec(initialCode)) !== null) {
-                    const [, matchedPrefix, matchedTranslationKey] = match;
-                    const translationKeyPosition = match.index + matchedPrefix.length;
-                    source.replace(
-                        translationKeyPosition, // start, inclusive
-                        translationKeyPosition + matchedTranslationKey.length - 1, // end, inclusive
-                        // replacement. 0 requires string delimiter as 0 otherwise treated as falsy / missing key
-                        i === 0 ? '"0"' : i.toString(),
-                    );
-                }
+            while ((match = usageRegex.exec(initialCode)) !== null) {
+                const [, matchedPrefix, matchedTranslationKey] = match;
+                const translationKeyPosition = match.index + matchedPrefix.length;
+                const normalizedTranslationKey = this.normalizeString(matchedTranslationKey);
+                const translationKeyIndex = translationKeyIndexMap[normalizedTranslationKey];
+                if (translationKeyIndex === undefined) continue;
+
+                source.replace(
+                    translationKeyPosition, // start, inclusive
+                    translationKeyPosition + matchedTranslationKey.length - 1, // end, inclusive
+                    // Replacement. 0 requires string delimiter as 0 otherwise treated as falsy / missing key
+                    translationKeyIndex === 0 ? '"0"' : translationKeyIndex.toString(),
+                );
             }
 
             assetInfo.source = source;
         }
     }
 
-    generateKeyRegex(key, allowNonStringKey) {
-        const escapedKey = key.replace(/\n/g, '\\n') // Search newlines as \n escape sequences in code.
-            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars.
-        const keyDelimiters = ['\'', '"', '`'];
-        if (allowNonStringKey && !/\s/.test(key)) {
-            // A key without whitespaces can be encoded as simple object key instead of string.
-            keyDelimiters.push('');
+    normalizeString(str) {
+        return str.replace(/['"`]\s*\+\s*['"`]/g, '') // resolve concatenations
+            .replace(/^["'`]|["'`]$/g, '') // remove outer string delimiters
+            .replace(/\n/g, '\\n'); // escape newlines
+    }
+
+    matchString(expectedString = null) {
+        if (expectedString === null) {
+            // match arbitrary string (note \\\\ in string becomes \\ in regex which matches a literal \)
+            return '(?:"(?:[^"]|\\\\")*?"|\'(?:[^\']|\\\\\')*?\'|`(?:[^`]|\\\\`)*?`)';
+        } else {
+            const escapedString = expectedString.replace(/\n/g, '\\n') // Search newlines as \n escape sequences in code.
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars.
+            return `(?:"${escapedString}"|'${escapedString}'|\`${escapedString}\`)`;
         }
-        return `(?:${keyDelimiters.map((delimiter) => `${delimiter}${escapedKey}${delimiter}`).join('|')})`;
     }
 
     parseLanguageFile(code) {
