@@ -1,5 +1,6 @@
 const JSON5 = require('json5');
 const { ReplaceSource } = require('webpack-sources');
+const WebpackError = require('webpack/lib/WebpackError');
 
 /**
  * Webpack plugin that optimizes language files and their usage by replacing translation keys by shorter numbers while
@@ -91,11 +92,14 @@ class I18nOptimizerPlugin {
         });
 
         this.optimizeLanguageFiles(languageFileInfos, translationKeyIndexMap, fallbackTranslations);
-        this.optimizeTranslationUsages(otherAssetInfos, translationKeyIndexMap);
+        const { missingTranslations, unusedTranslations } =
+            this.optimizeTranslationUsages(otherAssetInfos, translationKeyIndexMap);
 
         for (const { filename, source } of [...languageFileInfos, ...otherAssetInfos]) {
             this.updateAsset(compilation, filename, source);
         }
+
+        this.reportMissingAndUnusedTranslations(compilation, missingTranslations, unusedTranslations);
     }
 
     optimizeLanguageFiles(languageFileInfos, translationKeyIndexMap, fallbackTranslations) {
@@ -163,6 +167,8 @@ class I18nOptimizerPlugin {
     }
 
     optimizeTranslationUsages(assetInfos, translationKeyIndexMap) {
+        const missingTranslations = new Set();
+        const unusedTranslations = new Set(Object.keys(translationKeyIndexMap));
         // Replace translation keys in translation usages with the shorter numbers compatible with the optimized
         // language files.
         const usageRegexPrefixPart = '[$.]t[ec]?\\s*\\(\\s*' // Search for $t / $tc / $te calls
@@ -186,7 +192,11 @@ class I18nOptimizerPlugin {
                 const translationKeyPosition = match.index + matchedPrefix.length;
                 const normalizedTranslationKey = this.normalizeString(matchedTranslationKey);
                 const translationKeyIndex = translationKeyIndexMap[normalizedTranslationKey];
-                if (translationKeyIndex === undefined) continue;
+                if (translationKeyIndex === undefined) {
+                    missingTranslations.add(normalizedTranslationKey);
+                    continue;
+                }
+                unusedTranslations.delete(normalizedTranslationKey);
 
                 source.replace(
                     translationKeyPosition, // start, inclusive
@@ -198,6 +208,11 @@ class I18nOptimizerPlugin {
 
             assetInfo.source = source;
         }
+
+        return {
+            missingTranslations,
+            unusedTranslations,
+        };
     }
 
     normalizeString(str) {
@@ -248,6 +263,26 @@ class I18nOptimizerPlugin {
             compilation.updateAsset(filename, source);
         } else {
             compilation.assets[filename] = source;
+        }
+    }
+
+    reportMissingAndUnusedTranslations(compilation, missingTranslations, unusedTranslations) {
+        let warnMessage = '';
+        if (missingTranslations.size) {
+            warnMessage += 'The following translations appear in the bundled code but not in the language files:\n'
+                + [...missingTranslations].reduce((result, translationKey) => `${result}  ${translationKey}\n`, '');
+        }
+        if (unusedTranslations.size) {
+            warnMessage += 'The following translations appear in the language files but not in the bundled code:\n'
+                + [...unusedTranslations].reduce((result, translationKey) => `${result}  ${translationKey}\n`, '');
+        }
+        if (missingTranslations.size || unusedTranslations.size) {
+            warnMessage += '\nPlease extract the newest language reference file from the source code.';
+        }
+        if (warnMessage) {
+            const warning = new WebpackError(warnMessage);
+            warning.name = `${this.constructor.name}Warning`;
+            compilation.warnings.push(warning);
         }
     }
 }
