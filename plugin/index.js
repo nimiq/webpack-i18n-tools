@@ -218,13 +218,15 @@ class I18nOptimizerPlugin {
     normalizeString(str) {
         return str.replace(/['"`]\s*\+\s*['"`]/g, '') // resolve concatenations
             .replace(/^["'`]|["'`]$/g, '') // remove outer string delimiters
-            .replace(/\n/g, '\\n'); // escape newlines
+            .replace(/(?<!\\)(['"`])/g, (match, delimiter) => `\\${delimiter}`) // escape inner string delimiter chars
+            .replace(/\n/g, '\\n') // escape newlines
+            .replace(/\u00a0/g, '\\u00a0'); // escape non breaking spaces
     }
 
     matchString(expectedString = null) {
         if (expectedString === null) {
             // match arbitrary string (note \\\\ in string becomes \\ in regex which matches a literal \)
-            return '(?:"(?:[^"]|\\\\")*?"|\'(?:[^\']|\\\\\')*?\'|`(?:[^`]|\\\\`)*?`)';
+            return '(?:"(?:\\\\"|[^"])*?"|\'(?:\\\\\'|[^\'])*?\'|`(?:\\\\`|[^`])*?`)';
         } else {
             const escapedString = expectedString.replace(/\n/g, '\\n') // Search newlines as \n escape sequences in code.
                 .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars.
