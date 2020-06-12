@@ -38,6 +38,12 @@ const WebpackError = require('webpack/lib/WebpackError');
 class I18nOptimizerPlugin {
     apply(compiler) {
         compiler.hooks.compilation.tap(this.constructor.name, compilation => {
+            if (compiler.options.devtool && compiler.options.devtool.includes('eval')) {
+                this.emitCompilationError(compilation, `${this.constructor.name} is currently not compatible with eval `
+                    + 'devtool settings. Please use a different setting like `source-map`.');
+                return;
+            }
+
             if (compilation.hooks.processAssets) {
                 // Webpack >= 5
                 // TODO This is untested.
@@ -61,31 +67,39 @@ class I18nOptimizerPlugin {
     optimizeAssets(compilation) {
         const assets = compilation.assets; // maps filename -> source
         // categorize assets and parse language files
-        let referenceLanguageFileInfo;
+        let parsedReferenceLanguageFileContent;
         const languageFileInfos = [];
         const otherAssetInfos = [];
         for (const [filename, source] of Object.entries(assets)) {
             if (!filename.endsWith('.js') || filename.includes('chunk-vendors')) continue;
             if (/-po(?:-legacy)?(?:\.[^.]*)?\.js$/.test(filename)) {
-                const languageFileInfo = {
-                    filename,
-                    source,
-                    ...this.parseLanguageFile(source.source()),
-                };
-                languageFileInfos.push(languageFileInfo);
-                if (filename.includes('en-po')) {
-                    referenceLanguageFileInfo = languageFileInfo;
+                try {
+                    const languageFileInfo = {
+                        filename,
+                        source,
+                        ...this.parseLanguageFile(source.source()),
+                    };
+                    languageFileInfos.push(languageFileInfo);
+                    if (filename.includes('en-po')) {
+                        parsedReferenceLanguageFileContent = JSON5.parse(languageFileInfo.translationsCode);
+                    }
+                } catch (e) {
+                    this.emitCompilationError(compilation, `${this.constructor.name}: Failed to parse language file `
+                        + ` ${filename}. Note that currently bundling of language files is not supported. Each `
+                        + 'language file has to be its own chunk. Also, using `EvalSourceMapDevToolPlugin` or '
+                        + '`EvalDevToolModulePlugin` is currenlty not supported.');
+                    return;
                 }
             } else {
                 otherAssetInfos.push({ filename, source });
             }
         }
 
-        if (!referenceLanguageFileInfo) return;
+        if (!parsedReferenceLanguageFileContent) return;
 
         const translationKeyIndexMap = {};
         const fallbackTranslations = {};
-        Object.entries(JSON5.parse(referenceLanguageFileInfo.translationsCode)).forEach(([key, value], index) => {
+        Object.entries(parsedReferenceLanguageFileContent).forEach(([key, value], index) => {
             const normalizedKey = this.normalizeString(key);
             translationKeyIndexMap[normalizedKey] = index;
             fallbackTranslations[normalizedKey] = this.normalizeString(value);
@@ -282,10 +296,14 @@ class I18nOptimizerPlugin {
             warnMessage += '\nPlease extract the newest language reference file from the source code.';
         }
         if (warnMessage) {
-            const warning = new WebpackError(warnMessage);
-            warning.name = `${this.constructor.name}Warning`;
-            compilation.warnings.push(warning);
+            this.emitCompilationError(compilation, warnMessage, 'warning');
         }
+    }
+
+    emitCompilationError(compilation, message, level = 'error') {
+        const error = new WebpackError(message);
+        error.name = `${this.constructor.name}${'level' === 'error' ? 'Error' : 'Warning'}`;
+        compilation[`${level}s`].push(error);
     }
 }
 
