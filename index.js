@@ -10,7 +10,7 @@ if (
 	&& fs.existsSync(path.dirname(process.argv[2]))
 	&& path.extname(process.argv[2])
 ) { // script
-	return require('./script')();
+	return require('./extractor')();
 }
 else {
 	module.exports = (source) => {
