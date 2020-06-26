@@ -216,7 +216,7 @@ class I18nOptimizerPlugin {
                     translationKeyPosition, // start, inclusive
                     translationKeyPosition + matchedTranslationKey.length - 1, // end, inclusive
                     // Replacement. 0 requires string delimiter as 0 otherwise treated as falsy / missing key
-                    translationKeyIndex === 0 ? '"0"' : translationKeyIndex.toString(),
+                    translationKeyIndex === 0 ? '"0"' : `'${translationKeyIndex.toString()}'`,
                 );
             }
 
