@@ -50,7 +50,7 @@ class I18nOptimizerPlugin {
                 compilation.hooks.processAssets.tap(
                     {
                         name: this.constructor.name,
-                        stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
+                        stage: compilation.constructor.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
                     },
                     () => this.optimizeAssets(compilation),
                 );
