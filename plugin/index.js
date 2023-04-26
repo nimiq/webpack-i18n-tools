@@ -1,5 +1,5 @@
 const JSON5 = require('json5');
-const { ReplaceSource } = require('webpack-sources');
+const { ReplaceSource, RawSource } = require('webpack-sources');
 const WebpackError = require('webpack/lib/WebpackError');
 
 /**
@@ -223,6 +223,9 @@ class I18nOptimizerPlugin {
         const usageRegex = new RegExp(`(${usageRegexPrefixPart})(${usageRegexTranslationKeyPart})`, 'gs');
 
         for (const assetInfo of assetInfos) {
+            // RawSources are not supported, as they throw an error when calling ReplaceSource.source() on them.
+            if (assetInfo.source instanceof RawSource) continue;
+
             const source = new ReplaceSource(assetInfo.source);
             // note that all replacement positions are relative to initialCode, regardless of other replacements
             const initialCode = source.source();
