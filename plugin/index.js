@@ -36,6 +36,9 @@ const WebpackError = require('webpack/lib/WebpackError');
  *   involving the parser).
  */
 class I18nOptimizerPlugin {
+    /**
+     * @param {import('webpack').Compiler} compiler
+     */
     apply(compiler) {
         compiler.hooks.compilation.tap(this.constructor.name, compilation => {
             if (compiler.options.devtool && compiler.options.devtool.includes('eval')) {
@@ -64,6 +67,9 @@ class I18nOptimizerPlugin {
         });
     }
 
+    /**
+     * @param {import('webpack').Compilation} compilation
+     */
     optimizeAssets(compilation) {
         const assets = compilation.assets; // maps filename -> source
         // categorize assets and parse language files
@@ -97,7 +103,9 @@ class I18nOptimizerPlugin {
 
         if (!parsedReferenceLanguageFileContent) return;
 
+        /** @type {Record<string, number>} */
         const translationKeyIndexMap = {};
+        /** @type {Record<string, string>} */
         const fallbackTranslations = {};
         Object.entries(parsedReferenceLanguageFileContent).forEach(([key, value], index) => {
             const normalizedKey = this.normalizeString(key);
@@ -116,6 +124,17 @@ class I18nOptimizerPlugin {
         this.reportMissingAndUnusedTranslations(compilation, missingTranslations, unusedTranslations);
     }
 
+    /**
+     * @param {{
+     *     translationsCode: any;
+     *     prefix: string;
+     *     suffix: string;
+     *     filename: string;
+     *     source: import('webpack').sources.Source;
+     * }[]} languageFileInfos
+     * @param {Record<string, number>} translationKeyIndexMap
+     * @param {Record<string, string>} fallbackTranslations
+     */
     optimizeLanguageFiles(languageFileInfos, translationKeyIndexMap, fallbackTranslations) {
         // Replace the keys of the translations object by shorter numbers and fill in fallback translations where no
         // translation is available.
@@ -180,7 +199,15 @@ class I18nOptimizerPlugin {
         }
     }
 
+    /**
+     * @param {{
+    *     filename: string;
+    *     source: import('webpack').sources.Source;
+    * }[]} assetInfos
+    * @param {Record<string, number>} translationKeyIndexMap
+    */
     optimizeTranslationUsages(assetInfos, translationKeyIndexMap) {
+        /** @type {Set<string>} */
         const missingTranslations = new Set();
         const unusedTranslations = new Set(Object.keys(translationKeyIndexMap));
         // Replace translation keys in translation usages with the shorter numbers compatible with the optimized
@@ -229,6 +256,9 @@ class I18nOptimizerPlugin {
         };
     }
 
+    /**
+     * @param {string} str
+     */
     normalizeString(str) {
         return str.replace(/['"`]\s*\+\s*['"`]/g, '') // resolve concatenations
             .replace(/^["'`]|["'`]$/g, '') // remove outer string delimiters
@@ -237,6 +267,9 @@ class I18nOptimizerPlugin {
             .replace(/\u00a0/g, '\\u00a0'); // escape non breaking spaces
     }
 
+    /**
+     * @param {string | null} [expectedString]
+     */
     matchString(expectedString = null) {
         if (expectedString === null) {
             // match arbitrary string (note \\\\ in string becomes \\ in regex which matches a literal \)
@@ -248,6 +281,9 @@ class I18nOptimizerPlugin {
         }
     }
 
+    /**
+     * @param {string} code
+     */
     parseLanguageFile(code) {
         const PREFIX_BUILD = /^.*?exports=/s;
         const SUFFIX_BUILD = /}}]\);.*$/s;
@@ -273,6 +309,11 @@ class I18nOptimizerPlugin {
         };
     }
 
+    /**
+     * @param {import('webpack').Compilation} compilation
+     * @param {string} filename
+     * @param {import('webpack').sources.Source} source
+     */
     updateAsset(compilation, filename, source) {
         if (compilation.updateAsset) {
             // Webpack >= 4.40
@@ -282,6 +323,11 @@ class I18nOptimizerPlugin {
         }
     }
 
+    /**
+     * @param {import('webpack').Compilation} compilation
+     * @param {Set<string>} missingTranslations
+     * @param {Set<string>} unusedTranslations
+     */
     reportMissingAndUnusedTranslations(compilation, missingTranslations, unusedTranslations) {
         let warnMessage = '';
         if (missingTranslations.size) {
@@ -300,6 +346,11 @@ class I18nOptimizerPlugin {
         }
     }
 
+    /**
+     * @param {import('webpack').Compilation} compilation
+     * @param {string} message
+     * @param {string} [level]
+     */
     emitCompilationError(compilation, message, level = 'error') {
         const error = new WebpackError(message);
         error.name = `${this.constructor.name}${'level' === 'error' ? 'Error' : 'Warning'}`;
