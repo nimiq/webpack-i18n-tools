@@ -1,9 +1,12 @@
 const po2json = require('po2json');
 const utils = require('loader-utils');
 
+/**
+ * @this {import('webpack').loader.LoaderContext}
+ * @param {string | Buffer} source
+ * @returns {string}
+ */
 module.exports = function(source) {
-    if (this.cacheable) this.cacheable();
-
     const options = utils.getOptions(this) || {};
 
     if (!('format' in options)) {
@@ -14,7 +17,10 @@ module.exports = function(source) {
         options['fallback-to-msgid'] = true;
     }
 
-    const json = po2json.parse(source, options);
-
-    return 'module.exports = ' + JSON.stringify(json);
+    // Note: the spaces here are important for distinguishing a dev build from a minified production build in
+    // parseLanguageFile in plugin/index.js.
+    return `module.exports = ${po2json.parse(source, {
+        ...options,
+        stringify: true,
+    })}`;
 };

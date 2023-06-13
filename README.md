@@ -41,7 +41,7 @@ module.exports = {
 
 // Or for projects created via vue-cli:
 module.exports = {
-    chainWebpack: config => {
+    chainWebpack: (config) => {
         config.module
             .rule('po')
                 .test(/\.pot?$/)

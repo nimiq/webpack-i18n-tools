@@ -1,6 +1,16 @@
 const JSON5 = require('json5');
 const { ReplaceSource } = require('webpack-sources');
+// @ts-expect-error: @types/webpack does not include types for WebpackError
 const WebpackError = require('webpack/lib/WebpackError');
+
+/**
+ * @typedef {import('tapable').Tapable.Plugin} WebpackPlugin
+ * @typedef {import('webpack').Compiler} Compiler
+ * @typedef {import('webpack').compilation.Compilation} Compilation
+ * @typedef {import('webpack-sources').Source} Source
+ * @typedef {{filename: string, source: Source}} AssetInfo
+ * @typedef {AssetInfo & {translationsCode: string, prefix: string, suffix: string}} LanguageFileInfo
+ */
 
 /**
  * Webpack plugin that optimizes language files and their usage by replacing translation keys by shorter numbers while
@@ -34,24 +44,28 @@ const WebpackError = require('webpack/lib/WebpackError');
  *   https://github.com/webpack/webpack/blob/master/lib/dependencies/ConstDependency.js#L72).
  *   See https://stackoverflow.com/a/52906440 for a reduction of this approach to the essential parts (but without
  *   involving the parser).
+ *
+ *   @implements {WebpackPlugin}
  */
 class I18nOptimizerPlugin {
     /**
-     * @param {import('webpack').Compiler} compiler
+     * @param {Compiler} compiler
      */
     apply(compiler) {
-        compiler.hooks.compilation.tap(this.constructor.name, compilation => {
-            if (compiler.options.devtool && compiler.options.devtool.includes('eval')) {
+        compiler.hooks.compilation.tap(this.constructor.name, (compilation) => {
+            if (typeof compiler.options.devtool === 'string' && compiler.options.devtool.includes('eval')) {
                 this.emitCompilationError(compilation, `${this.constructor.name} is currently not compatible with eval `
                     + 'devtool settings. Please use a different setting like `source-map`.');
                 return;
             }
 
-            if (compilation.hooks.processAssets) {
+            if ('processAssets' in compilation.hooks) {
                 // Webpack >= 5
+                // @ts-expect-error: our typescript checking is based on Webpack 4 types.
                 compilation.hooks.processAssets.tap(
                     {
                         name: this.constructor.name,
+                        // @ts-expect-error
                         stage: compilation.constructor.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
                     },
                     () => this.optimizeAssets(compilation),
@@ -67,22 +81,28 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {import('webpack').Compilation} compilation
+     * @param {Compilation} compilation
      */
     optimizeAssets(compilation) {
+        /** @type {{[filename: string]: Source}} */
         const assets = compilation.assets; // maps filename -> source
+
         // categorize assets and parse language files
         let parsedReferenceLanguageFileContent;
+        /** @type {LanguageFileInfo[]} */
         const languageFileInfos = [];
+        /** @type {AssetInfo[]} */
         const otherAssetInfos = [];
         for (const [filename, source] of Object.entries(assets)) {
             if (!filename.endsWith('.js') || filename.includes('chunk-vendors')) continue;
+            const sourceContent = source.source();
+            if (typeof sourceContent !== 'string') continue;
             if (/-po(?:-legacy)?(?:\.[^.]*)?\.js$/.test(filename)) {
                 try {
                     const languageFileInfo = {
                         filename,
                         source,
-                        ...this.parseLanguageFile(source.source()),
+                        ...this.parseLanguageFile(sourceContent),
                     };
                     languageFileInfos.push(languageFileInfo);
                     if (filename.includes('en-po')) {
@@ -90,7 +110,7 @@ class I18nOptimizerPlugin {
                     }
                 } catch (e) {
                     this.emitCompilationError(compilation, `${this.constructor.name}: Failed to parse language file `
-                        + ` ${filename}. Note that currently bundling of language files is not supported. Each `
+                        + `${filename}. Note that currently bundling of language files is not supported. Each `
                         + 'language file has to be its own chunk. Also, using `EvalSourceMapDevToolPlugin` or '
                         + '`EvalDevToolModulePlugin` is currently not supported.');
                     return;
@@ -124,13 +144,7 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {{
-     *     translationsCode: any;
-     *     prefix: string;
-     *     suffix: string;
-     *     filename: string;
-     *     source: import('webpack').sources.Source;
-     * }[]} languageFileInfos
+     * @param {LanguageFileInfo[]} languageFileInfos
      * @param {Record<string, number>} translationKeyIndexMap
      * @param {Record<string, string>} fallbackTranslations
      */
@@ -199,12 +213,10 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {{
-    *     filename: string;
-    *     source: import('webpack').sources.Source;
-    * }[]} assetInfos
-    * @param {Record<string, number>} translationKeyIndexMap
-    */
+     * @param {AssetInfo[]} assetInfos
+     * @param {Record<string, number>} translationKeyIndexMap
+     * @returns {{missingTranslations: Set<string>, unusedTranslations: Set<string>}}
+     */
     optimizeTranslationUsages(assetInfos, translationKeyIndexMap) {
         /** @type {Set<string>} */
         const missingTranslations = new Set();
@@ -257,6 +269,7 @@ class I18nOptimizerPlugin {
 
     /**
      * @param {string} str
+     * @returns {string}
      */
     normalizeString(str) {
         return str.replace(/['"`]\s*\+\s*['"`]/g, '') // resolve concatenations
@@ -268,6 +281,7 @@ class I18nOptimizerPlugin {
 
     /**
      * @param {string | null} [expectedString]
+     * @returns {string}
      */
     matchString(expectedString = null) {
         if (expectedString === null) {
@@ -282,6 +296,7 @@ class I18nOptimizerPlugin {
 
     /**
      * @param {string} code
+     * @returns {{translationsCode: string, prefix: string, suffix: string}}
      */
     parseLanguageFile(code) {
         const PREFIX_BUILD = /^.*?exports=/s;
@@ -292,12 +307,14 @@ class I18nOptimizerPlugin {
 
         let prefix = '', suffix = '';
         if (!code.match(PREFIX_BUILD)) {
-            prefix = code.match(PREFIX_SERVE)[0];
-            suffix = code.match(SUFFIX_SERVE)[0];
+            prefix = code.match(PREFIX_SERVE)?.[0] || '';
+            suffix = code.match(SUFFIX_SERVE)?.[0] || '';
         } else {
-            prefix = code.match(PREFIX_BUILD)[0];
-            suffix = code.match(SUFFIX_BUILD)[0];
+            prefix = code.match(PREFIX_BUILD)?.[0] || '';
+            suffix = code.match(SUFFIX_BUILD)?.[0] || '';
         }
+
+        if (!prefix || !suffix) throw new Error('Failed to parse language file.');
 
         const translationsCode = code.substring(prefix.length, code.length - suffix.length);
 
@@ -309,9 +326,9 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {import('webpack').Compilation} compilation
+     * @param {Compilation} compilation
      * @param {string} filename
-     * @param {import('webpack').sources.Source} source
+     * @param {Source} source
      */
     updateAsset(compilation, filename, source) {
         if (compilation.updateAsset) {
@@ -323,7 +340,7 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {import('webpack').Compilation} compilation
+     * @param {Compilation} compilation
      * @param {Set<string>} missingTranslations
      * @param {Set<string>} unusedTranslations
      */
@@ -346,14 +363,14 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {import('webpack').Compilation} compilation
+     * @param {Compilation} compilation
      * @param {string} message
      * @param {string} [level]
      */
     emitCompilationError(compilation, message, level = 'error') {
         const error = new WebpackError(message);
         error.name = `${this.constructor.name}${level === 'error' ? 'Error' : 'Warning'}`;
-        compilation[`${level}s`].push(error);
+        compilation[level === 'error' ? 'errors' : 'warnings'].push(error);
     }
 }
 

@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
+const PoParser = require('gettext-parser').po;
+
 const inputGlob = process.argv[2];
 if (!inputGlob) {
     console.error(
@@ -15,63 +17,53 @@ if (!inputFiles.length) {
     process.exit(1);
 }
 
-inputFiles.forEach((inputFile) => {
+for (const inputFile of inputFiles) {
     const buffer = fs.readFileSync(inputFile);
 
     // Parse the PO file
-    const parsed = require('gettext-parser').po.parse(buffer, 'utf8');
+    const parsed = PoParser.parse(buffer, 'utf8');
 
     // Create JSON from parsed data
+    /** @type {{[translationReferenceFile: string]: {[translationKey: string]: string}}} */
     const result = {};
-    const contexts = parsed.translations;
+    const contexts = Object.keys(parsed.translations);
 
-    Object.keys(contexts).forEach((context) => {
+    for (const context of contexts) {
         const translations = parsed.translations[context];
 
-        Object.keys(translations).forEach((key, i) => {
-            const translation = translations[key];
+        for (const translationKey of Object.keys(translations)) {
+            const namespacedTranslationKey = context ? `${context}\u0004${translationKey}` : translationKey;
+            const translation = translations[translationKey];
 
-            if (!translation.comments || !translation.comments.reference) return;
+            if (!translation.comments || !translation.comments.reference) continue;
+            const fuzzy = !!translation.comments.flag.match(/fuzzy/);
+            // Extract the reference files (code files that the message strings came from) from the translation comments
+            const translationReferenceFiles = translation.comments.reference.split(/\s+/)
+                .map((translationReferenceFile) => translationReferenceFile.replace(/:\d+/g, '')) // strip line numbers
+                .filter(Boolean); // filter out empty strings
 
-            const translationKey = context.length ? context + '\u0004' + key : key;
-            const fuzzy = translation.comments && translation.comments.flag && translation.comments.flag.match(/fuzzy/) !== null;
-
-            const translationReferenceFiles = [].concat(
-                ...translation.comments.reference
-                    .split('\n').map((ref) => ref.split(' '))
-            );
-
-            translationReferenceFiles.forEach((translationReferenceFile) => {
-                translationReferenceFile = translationReferenceFile.replace(/:\d*/g, "");
-
-                if (!result[translationReferenceFile]) {
-                    result[translationReferenceFile] = {};
-                }
-
-                result[translationReferenceFile][translationKey] = (!fuzzy && translation.msgstr[0] !== '')
-                    ? translation.msgstr[0]
-                    : key;
-            })
-        });
-    });
-
-    delete result[''];
+            for (const translationReferenceFile of translationReferenceFiles) {
+                result[translationReferenceFile] = {
+                    ...result[translationReferenceFile],
+                    [namespacedTranslationKey]: !fuzzy && !!translation.msgstr[0]
+                        ? translation.msgstr[0]
+                        : translationKey, // fallback to the message key as translation
+                };
+            }
+        }
+    }
 
     const langFolder = path.join(
         './src/i18n',
-        path.basename(inputFile, path.extname(inputFile))
+        path.basename(inputFile, path.extname(inputFile)),
     );
 
     if (!fs.existsSync(langFolder)) {
         fs.mkdirSync(langFolder);
     }
 
-    // if (inputFile.includes('fr')) {
-    //     console.log(JSON.stringify(result, null, 2));
-    // }
-
-
-    Object.keys(result).forEach((filepath) => {
+    // Write out the JSON files.
+    for (const filepath of Object.keys(result)) {
         const jsonFilename = path.join(
             langFolder,
             path.basename(filepath, '.vue') + '.json'
@@ -81,6 +73,5 @@ inputFiles.forEach((inputFile) => {
             jsonFilename,
             JSON.stringify(result[filepath], null, 2),
         );
-    });
-
-});
+    }
+}

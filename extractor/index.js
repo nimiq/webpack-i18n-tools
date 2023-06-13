@@ -1,12 +1,11 @@
 const fs = require('fs');
-const path = require('path');
 const parse5 = require('parse5');
 const gettext = require('gettext-extractor');
 const GettextExtractor = gettext.GettextExtractor;
 const JsExtractors = gettext.JsExtractors;
 const Readable = require('stream').Readable;
-const glob = require("glob");
-const queue = require('queue');
+const glob = require('glob');
+const Queue = require('queue').default;
 
 module.exports = async function(writeToFile = true) {
 
@@ -31,30 +30,35 @@ module.exports = async function(writeToFile = true) {
         'wbr'
     ];
 
+    /**
+     * @param {string} filename
+     * @returns {Promise<Array<{ code: string, line: number }>>}
+     */
     const parseVueFile = (filename) => {
         return new Promise((resolve) => {
-            const readStream = fs.createReadStream(filename, {
+            const htmlStream = fs.createReadStream(filename, {
                 encoding: 'utf8',
             });
 
-            const parser = new parse5.SAXParser({ locationInfo: true });
+            const htmlParser = new parse5.SAXParser({ locationInfo: true });
 
             let depth = 0;
 
+            /** @type {Record<'template' | 'script', {start?: number, line?: number, end?: number} | null>} */
             const sectionLocations = {
                 template: null,
                 script: null,
             };
 
-            // Get the location of the `template` and `script` tags, which should be top-level
-            parser.on('startTag', (name, attrs, selfClosing, location) => {
-                if (depth === 0) {
-                    if (name === 'template' || name === 'script') {
-                        sectionLocations[name] = {
-                            start: location.endOffset,
-                            line: location.line,
-                        };
-                    }
+            // Get the location of the top-level `template` and `script` tags
+            htmlParser.on('startTag', (name, attrs, selfClosing, location) => {
+                if (depth === 0
+                    && (name === 'template' || name === 'script')
+                    && location) {
+                    sectionLocations[name] = {
+                        start: location.endOffset,
+                        line: location.line,
+                    };
                 }
 
                 if (!(selfClosing || selfClosingTags.indexOf(name) > -1)) {
@@ -62,18 +66,19 @@ module.exports = async function(writeToFile = true) {
                 }
             });
 
-            parser.on('endTag', (name, location) => {
+            htmlParser.on('endTag', (name, location) => {
                 depth--;
 
-                if (depth === 0) {
-                    if (name === 'template' || name === 'script') {
-                        sectionLocations[name].end = location.startOffset;
-                    }
+                if (depth === 0 && (name === 'template' || name === 'script') && location) {
+                    sectionLocations[name] = {
+                        ...sectionLocations[name],
+                        end: location.startOffset,
+                    };
                 }
             });
 
-            readStream.on('open', () => readStream.pipe(parser));
-            readStream.on('end', () => {
+            htmlStream.on('open', () => htmlStream.pipe(htmlParser));
+            htmlStream.on('end', () => {
                 const content = fs.readFileSync(filename, {
                     encoding: 'utf8',
                 });
@@ -81,49 +86,48 @@ module.exports = async function(writeToFile = true) {
                 // Get the contents of the `template` and `script` sections, if present.
                 // We're assuming that the content is inline, not referenced by an `src` attribute.
                 // https://vue-loader.vuejs.org/en/start/spec.html
-                let template = null;
+                let template = '';
+                /** @type {Array<{code: string, line: number}>} */
                 const snippets = [];
 
-                if (sectionLocations.template) {
-                    template = content.substr(
-                        sectionLocations.template.start,
-                        sectionLocations.template.end - sectionLocations.template.start,
-                    );
+                if (sectionLocations.template && sectionLocations.template.start && sectionLocations.template.end) {
+                    template = content.substring(sectionLocations.template.start, sectionLocations.template.end);
                 }
 
-                if (sectionLocations.script) {
+                if (sectionLocations.script
+                    && sectionLocations.script.start
+                    && sectionLocations.script.end
+                    && sectionLocations.script.line) {
                     snippets.push({
-                        code: content.substr(
-                            sectionLocations.script.start,
-                            sectionLocations.script.end - sectionLocations.script.start,
-                        ),
+                        code: content.substring(sectionLocations.script.start, sectionLocations.script.end),
                         line: sectionLocations.script.line,
                     });
                 }
 
                 // Parse the template looking for JS expressions
-                const templateParser = new parse5.SAXParser({locationInfo: true});
+                const templateParser = new parse5.SAXParser({ locationInfo: true });
 
                 // Look for JS expressions in tag attributes
                 templateParser.on('startTag', (name, attrs, selfClosing, location) => {
-                    for (let i = 0; i < attrs.length; i++) {
-                        // We're only looking for data bindings, events and directives
-                        if (attrs[i].name.match(/^(:|@|v-)/)) {
+                    if (!location) return;
+                    for (const attr of attrs) {
+                        // We're looking for data bindings, events and directives
+                        if (attr.name.match(/^(:|@|v-)/)) {
                             snippets.push({
-                                code: attrs[i].value,
-                                line: location.attrs[attrs[i].name].line,
+                                code: attr.value,
+                                line: location.attrs[attr.name].line,
                             });
                         }
                         // vue-i18n component interpolation, path attr
-                        if (name === 'i18n' && (attrs[i].name === 'path' || attrs[i].name === ':path')) {
+                        if (name === 'i18n' && (attr.name === 'path' || attr.name === ':path')) {
                             // wrap the path / key in a js snippet including $t for detection by the javascript parser
-                            const stringDelimiter = attrs[i].name === 'path'
-                                ? ['"', '\'', '`'].find((delimiter) => !attrs[i].value.includes(delimiter))
+                            const stringDelimiter = attr.name === 'path'
+                                ? ['"', '\'', '`'].find((delimiter) => !attr.value.includes(delimiter))
                                 : ''; // none required as the value is already a js snippet with strings marked as such
-                            const code = `$t(${stringDelimiter}${attrs[i].value}${stringDelimiter})`;
+                            const code = `$t(${stringDelimiter}${attr.value}${stringDelimiter})`;
                             snippets.push({
                                 code,
-                                line: location.attrs[attrs[i].name].line,
+                                line: location.attrs[attr.name].line,
                             });
                         }
                     }
@@ -134,39 +138,40 @@ module.exports = async function(writeToFile = true) {
                 // These delimiters could change using Vue's `delimiters` option.
                 // https://vuejs.org/v2/api/#delimiters
                 templateParser.on('text', (text, location) => {
+                    if (!location) return;
                     let exprMatch;
                     let lineOffset = 0;
 
                     while (exprMatch = text.match(/{{([\s\S]*?)}}/)) {
-                        const prevLines = text.substr(0, exprMatch.index).split(/\r\n|\r|\n/).length;
-                        const matchedLines = exprMatch[1].split(/\r\n|\r|\n/).length;
+                        const code = exprMatch[1];
+                        const prevLinesCount = text.substring(0, exprMatch.index).split(/\r\n|\r|\n/).length;
+                        const matchedLinesCount = code.split(/\r\n|\r|\n/).length;
 
-                        lineOffset += prevLines - 1;
+                        lineOffset += prevLinesCount - 1;
 
                         snippets.push({
-                            code: exprMatch[1],
+                            code,
                             line: location.line + lineOffset,
                         })
 
-                        text = text.substr(exprMatch.index + exprMatch[0].length);
+                        text = text.substring(/** @type {number} */ (exprMatch.index) + exprMatch[0].length);
 
-                        lineOffset += matchedLines - 1;
+                        lineOffset += matchedLinesCount - 1;
                     }
-                })
+                });
 
-                const s = new Readable;
+                const templateStream = new Readable();
 
-                s.on('end', () => resolve(snippets));
+                templateStream.on('end', () => resolve(snippets));
 
-                s.push(template);
-                s.push(null);
+                templateStream.push(template);
+                templateStream.push(null);
 
-                s.pipe(templateParser);
+                templateStream.pipe(templateParser);
             });
         });
     };
 
-    const q = queue({ concurrency: 1 });
     const outputFile = process.argv[2];
 
     if (writeToFile && !outputFile) {
@@ -177,7 +182,7 @@ module.exports = async function(writeToFile = true) {
         process.exit(1);
     }
 
-    const parser = extractor.createJsParser([
+    const scriptParser = extractor.createJsParser([
         // Place all the possible expressions to extract here:
         JsExtractors.callExpression([
             '$t', '[this].$t', 'i18n.t', 'root.$t', 'context.root.$t', '[this].$root.$t', "context.root.$i18n.t",
@@ -185,34 +190,42 @@ module.exports = async function(writeToFile = true) {
             '$te', '[this].$te', 'i18n.te', 'root.$te', 'context.root.$te', '[this].$root.$te', "context.root.$i18n.te",
         ], {
             arguments: {
-                text: 0,
-            }
+                text: 0, // the message is the first argument
+            },
         }),
         JsExtractors.callExpression([
             'I18nMixin.$t'
         ], {
             arguments: {
-                text: 1,
-            }
-        })
+                text: 1, // the message is the second argument
+            },
+        }),
     ]);
-    parser.parseFilesGlob('./src/**/*.{ts,js}');
 
-    const files = glob.sync("./src/**/*.vue");
-    q.push(...files.map(filename => (cb) => parseVueFile(filename).then(snipps => {
-        snipps.forEach(({ code, line }) => {
-            parser.parseString(
-                code,
-                filename,
-                { lineNumberStart: line },
-            )
+    // Parse typescript and javascript files.
+    scriptParser.parseFilesGlob('./src/**/*.{ts,js}');
+
+    // Parse vue files.
+    const vueFiles = glob.sync("./src/**/*.vue");
+    const vueFileQueue = new Queue({ concurrency: 1 });
+    for (const vueFile of vueFiles) {
+        vueFileQueue.push(async (cb) => {
+            const snippets = await parseVueFile(vueFile)
+            for (const { code, line } of snippets) {
+                scriptParser.parseString(
+                    code,
+                    vueFile,
+                    { lineNumberStart: line },
+                );
+            }
+
+            if (!cb) return;
+            cb();
         });
-
-        cb();
-    })));
+    }
 
     try {
-        await new Promise((resolve, reject) => q.start((error) => (!error ? resolve : reject)(error)));
+        await new Promise((resolve, reject) => vueFileQueue.start((error) => (!error ? resolve : reject)(error)));
         extractor.printStats();
 
         if (writeToFile) {
