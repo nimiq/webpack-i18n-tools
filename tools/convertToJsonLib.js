@@ -2,7 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
 const inputGlob = process.argv[2];
+if (!inputGlob) {
+    console.error(
+        'No input file or glob provided.',
+        'Usage: $> node node_modules/webpack-i18n-tools/tools/convertToJsonLib.js "<language file or glob>"',
+    );
+    process.exit(1);
+}
 const inputFiles = glob.sync(inputGlob);
+if (!inputFiles.length) {
+    console.error(`No input files found for glob ${inputGlob}.`);
+    process.exit(1);
+}
 
 inputFiles.forEach((inputFile) => {
     const buffer = fs.readFileSync(inputFile);

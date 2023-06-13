@@ -92,7 +92,7 @@ class I18nOptimizerPlugin {
                     this.emitCompilationError(compilation, `${this.constructor.name}: Failed to parse language file `
                         + ` ${filename}. Note that currently bundling of language files is not supported. Each `
                         + 'language file has to be its own chunk. Also, using `EvalSourceMapDevToolPlugin` or '
-                        + '`EvalDevToolModulePlugin` is currenlty not supported.');
+                        + '`EvalDevToolModulePlugin` is currently not supported.');
                     return;
                 }
             } else {
@@ -352,7 +352,7 @@ class I18nOptimizerPlugin {
      */
     emitCompilationError(compilation, message, level = 'error') {
         const error = new WebpackError(message);
-        error.name = `${this.constructor.name}${'level' === 'error' ? 'Error' : 'Warning'}`;
+        error.name = `${this.constructor.name}${level === 'error' ? 'Error' : 'Warning'}`;
         compilation[`${level}s`].push(error);
     }
 }

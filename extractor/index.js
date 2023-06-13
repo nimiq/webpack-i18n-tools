@@ -169,10 +169,10 @@ module.exports = async function(writeToFile = true) {
     const q = queue({ concurrency: 1 });
     const outputFile = process.argv[2];
 
-    if (!outputFile) {
+    if (writeToFile && !outputFile) {
         console.error(
             'The path for the output file must be provided and valid.',
-            'For example: $> node ./node_modules/translation-key-extractor/index.js ./src/i18n/en.po',
+            'Usage: $> node node_modules/webpack-i18n-tools/index.js <output-language-file>',
         );
         process.exit(1);
     }
@@ -211,11 +211,8 @@ module.exports = async function(writeToFile = true) {
         cb();
     })));
 
-    const err = await new Promise((resolve, reject) =>
-        q.start((err) => err ? reject(err) : resolve())
-    );
-
-    if (!err) {
+    try {
+        await new Promise((resolve, reject) => q.start((error) => (!error ? resolve : reject)(error)));
         extractor.printStats();
 
         if (writeToFile) {
@@ -223,8 +220,8 @@ module.exports = async function(writeToFile = true) {
         } else {
             return extractor.getMessages();
         }
-    } else {
-        console.log(err);
-        throw new Error(err);
+    } catch (e) {
+        console.error(e);
+        throw e;
     }
 }
