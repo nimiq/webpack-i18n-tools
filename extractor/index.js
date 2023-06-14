@@ -1,5 +1,5 @@
 const fs = require('fs');
-const parse5 = require('parse5');
+const SAXParserPromise = import('parse5-sax-parser'); // es modules cannot be imported via require
 const gettext = require('gettext-extractor');
 const GettextExtractor = gettext.GettextExtractor;
 const JsExtractors = gettext.JsExtractors;
@@ -34,13 +34,14 @@ module.exports = async function(writeToFile = true) {
      * @param {string} filename
      * @returns {Promise<Array<{ code: string, line: number }>>}
      */
-    const parseVueFile = (filename) => {
+    const parseVueFile = async (filename) => {
+        const { SAXParser } = await SAXParserPromise;
         return new Promise((resolve) => {
             const htmlStream = fs.createReadStream(filename, {
                 encoding: 'utf8',
             });
 
-            const htmlParser = new parse5.SAXParser({ locationInfo: true });
+            const htmlParser = new SAXParser({ sourceCodeLocationInfo: true });
 
             let depth = 0;
 
@@ -51,28 +52,28 @@ module.exports = async function(writeToFile = true) {
             };
 
             // Get the location of the top-level `template` and `script` tags
-            htmlParser.on('startTag', (name, attrs, selfClosing, location) => {
+            htmlParser.on('startTag', ({ tagName, selfClosing, sourceCodeLocation }) => {
                 if (depth === 0
-                    && (name === 'template' || name === 'script')
-                    && location) {
-                    sectionLocations[name] = {
-                        start: location.endOffset,
-                        line: location.line,
+                    && (tagName === 'template' || tagName === 'script')
+                    && sourceCodeLocation) {
+                    sectionLocations[tagName] = {
+                        start: sourceCodeLocation.endOffset,
+                        line: sourceCodeLocation.endLine,
                     };
                 }
 
-                if (!(selfClosing || selfClosingTags.indexOf(name) > -1)) {
+                if (!(selfClosing || selfClosingTags.indexOf(tagName) > -1)) {
                     depth++;
                 }
             });
 
-            htmlParser.on('endTag', (name, location) => {
+            htmlParser.on('endTag', ({ tagName, sourceCodeLocation }) => {
                 depth--;
 
-                if (depth === 0 && (name === 'template' || name === 'script') && location) {
-                    sectionLocations[name] = {
-                        ...sectionLocations[name],
-                        end: location.startOffset,
+                if (depth === 0 && (tagName === 'template' || tagName === 'script') && sourceCodeLocation) {
+                    sectionLocations[tagName] = {
+                        ...sectionLocations[tagName],
+                        end: sourceCodeLocation.startOffset,
                     };
                 }
             });
@@ -105,21 +106,23 @@ module.exports = async function(writeToFile = true) {
                 }
 
                 // Parse the template looking for JS expressions
-                const templateParser = new parse5.SAXParser({ locationInfo: true });
+                const templateParser = new SAXParser({ sourceCodeLocationInfo: true });
 
                 // Look for JS expressions in tag attributes
-                templateParser.on('startTag', (name, attrs, selfClosing, location) => {
-                    if (!location) return;
+                templateParser.on('startTag', ({ tagName, attrs, sourceCodeLocation }) => {
+                    if (!sourceCodeLocation || !('attrs' in sourceCodeLocation)) return;
+                    const { attrs: attributeLocations } = (
+                        /** @type {import('parse5').StartTagLocation} */ (sourceCodeLocation));
                     for (const attr of attrs) {
                         // We're looking for data bindings, events and directives
                         if (attr.name.match(/^(:|@|v-)/)) {
                             snippets.push({
                                 code: attr.value,
-                                line: location.attrs[attr.name].line,
+                                line: attributeLocations[attr.name].startLine,
                             });
                         }
                         // vue-i18n component interpolation, path attr
-                        if (name === 'i18n' && (attr.name === 'path' || attr.name === ':path')) {
+                        if (tagName === 'i18n' && (attr.name === 'path' || attr.name === ':path')) {
                             // wrap the path / key in a js snippet including $t for detection by the javascript parser
                             const stringDelimiter = attr.name === 'path'
                                 ? ['"', '\'', '`'].find((delimiter) => !attr.value.includes(delimiter))
@@ -127,7 +130,7 @@ module.exports = async function(writeToFile = true) {
                             const code = `$t(${stringDelimiter}${attr.value}${stringDelimiter})`;
                             snippets.push({
                                 code,
-                                line: location.attrs[attr.name].line,
+                                line: attributeLocations[attr.name].startLine,
                             });
                         }
                     }
@@ -137,8 +140,8 @@ module.exports = async function(writeToFile = true) {
                 // We're assuming {{}} as delimiters for interpolations.
                 // These delimiters could change using Vue's `delimiters` option.
                 // https://vuejs.org/v2/api/#delimiters
-                templateParser.on('text', (text, location) => {
-                    if (!location) return;
+                templateParser.on('text', ({ text, sourceCodeLocation }) => {
+                    if (!sourceCodeLocation) return;
                     let exprMatch;
                     let lineOffset = 0;
 
@@ -151,7 +154,7 @@ module.exports = async function(writeToFile = true) {
 
                         snippets.push({
                             code,
-                            line: location.line + lineOffset,
+                            line: sourceCodeLocation.startLine + lineOffset,
                         })
 
                         text = text.substring(/** @type {number} */ (exprMatch.index) + exprMatch[0].length);
@@ -160,13 +163,8 @@ module.exports = async function(writeToFile = true) {
                     }
                 });
 
-                const templateStream = new Readable();
-
+                const templateStream = Readable.from([template]);
                 templateStream.on('end', () => resolve(snippets));
-
-                templateStream.push(template);
-                templateStream.push(null);
-
                 templateStream.pipe(templateParser);
             });
         });

@@ -94,6 +94,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node@npm:^20.3.1":
+  version: 20.3.1
+  resolution: "@types/node@npm:20.3.1"
+  checksum: 63a393ab6d947be17320817b35d7277ef03728e231558166ed07ee30b09fd7c08861be4d746f10fdc63ca7912e8cd023939d4eab887ff6580ff704ff24ed810c
+  languageName: node
+  linkType: hard
+
 "@types/parse5@npm:^5":
   version: 5.0.2
   resolution: "@types/parse5@npm:5.0.2"
@@ -1423,6 +1430,13 @@ __metadata:
     memory-fs: ^0.5.0
     tapable: ^1.0.0
   checksum: 4d87488584c4d67d356ef4ba04978af4b2d4d18190cb859efac8e8475a34d5d6c069df33faa5a0a22920b0586dbf330f6a08d52bb15a8771a9ce4d70a2da74ba
+  languageName: node
+  linkType: hard
+
+"entities@npm:^4.4.0":
+  version: 4.5.0
+  resolution: "entities@npm:4.5.0"
+  checksum: 853f8ebd5b425d350bffa97dd6958143179a5938352ccae092c62d1267c4e392a039be1bae7d51b6e4ffad25f51f9617531fedf5237f15df302ccfb452cbf2d7
   languageName: node
   linkType: hard
 
@@ -3089,6 +3103,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"parse5-sax-parser@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "parse5-sax-parser@npm:7.0.0"
+  dependencies:
+    parse5: ^7.0.0
+  checksum: 9826f9349c271d4c1a1cc402115f0888bcf1201fa4172d91dd14ae3db316355c02c949f8dfecee315332621c11ace8497dad47f3224dd5ae0eb3a41b0846d4cf
+  languageName: node
+  linkType: hard
+
 "parse5@npm:5 - 6":
   version: 6.0.1
   resolution: "parse5@npm:6.0.1"
@@ -3096,10 +3119,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"parse5@npm:^4.*.*":
-  version: 4.0.0
-  resolution: "parse5@npm:4.0.0"
-  checksum: 2123cec690689fed44e6c76aa8a08215d2dadece7eff7b35156dda7485e6a232c9b737313688ee715eb0678b6a87a31026927dd74690154f8a0811059845ba46
+"parse5@npm:^7.0.0":
+  version: 7.1.2
+  resolution: "parse5@npm:7.1.2"
+  dependencies:
+    entities: ^4.4.0
+  checksum: 59465dd05eb4c5ec87b76173d1c596e152a10e290b7abcda1aecf0f33be49646ea74840c69af975d7887543ea45564801736356c568d6b5e71792fd0f4055713
   languageName: node
   linkType: hard
 
@@ -4246,12 +4271,13 @@ __metadata:
   dependencies:
     "@types/gettext-parser": ^4.0.2
     "@types/loader-utils": ^1.1.6
+    "@types/node": ^20.3.1
     gettext-extractor: ^3.7.2
     gettext-parser: ^7.0.1
     glob: ^10.2.7
     json5: ^2.2.3
     loader-utils: ^1.2.3
-    parse5: ^4.*.*
+    parse5-sax-parser: ^7.0.0
     po2json: ^0.4.5
     queue: ^6.0.1
     typescript: ^5.1.3
