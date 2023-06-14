@@ -21,7 +21,12 @@ for (const inputFile of inputFiles) {
     const buffer = fs.readFileSync(inputFile);
 
     // Parse the PO file
-    const parsed = PoParser.parse(buffer, 'utf8');
+    const parsed = PoParser.parse(
+        buffer,
+        // Later versions of gettext-parser expect an options object, but @types/gettext-parser still has the old type
+        // of expecting the default charset as second parameter. Thus, we pass it in a way which is compatible with both
+        Object.assign('utf8', { defaultCharset: 'utf8' }),
+    );
 
     // Create JSON from parsed data
     /** @type {{[translationReferenceFile: string]: {[translationKey: string]: string}}} */
