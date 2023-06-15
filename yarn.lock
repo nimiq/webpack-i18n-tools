@@ -147,13 +147,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/loader-utils@npm:^1.1.6":
-  version: 1.1.6
-  resolution: "@types/loader-utils@npm:1.1.6"
+"@types/loader-utils@npm:^2.0.3":
+  version: 2.0.3
+  resolution: "@types/loader-utils@npm:2.0.3"
   dependencies:
     "@types/node": "*"
     "@types/webpack": ^4
-  checksum: 9a2e727c45b8b5c546b3fe834f6d02cac432ceea30a8437b75e59c5752fe4091b9a7d7237ba89cf1e13a71e6fac5fe4e383405185332a75e2b5be81db0b26493
+  checksum: f50cce4ddd91f80b3a41476079cf41bc81e66c50b82a4cd69912f648e4e9881bf323cfb03795c96d3b1379f4f5bd9ab21201cc06f2785919611ca05490b85440
   languageName: node
   linkType: hard
 
@@ -1003,18 +1003,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"json5@npm:^1.0.1":
-  version: 1.0.2
-  resolution: "json5@npm:1.0.2"
-  dependencies:
-    minimist: ^1.2.0
-  bin:
-    json5: lib/cli.js
-  checksum: 866458a8c58a95a49bef3adba929c625e82532bcff1fe93f01d29cb02cac7c3fe1f4b79951b7792c2da9de0b32871a8401a6e3c5b36778ad852bf5b8a61165d7
-  languageName: node
-  linkType: hard
-
-"json5@npm:^2.2.3":
+"json5@npm:^2.1.2, json5@npm:^2.2.3":
   version: 2.2.3
   resolution: "json5@npm:2.2.3"
   bin:
@@ -1030,14 +1019,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"loader-utils@npm:^1.2.3":
-  version: 1.4.2
-  resolution: "loader-utils@npm:1.4.2"
+"loader-utils@npm:^2.0.4":
+  version: 2.0.4
+  resolution: "loader-utils@npm:2.0.4"
   dependencies:
     big.js: ^5.2.2
     emojis-list: ^3.0.0
-    json5: ^1.0.1
-  checksum: eb6fb622efc0ffd1abdf68a2022f9eac62bef8ec599cf8adb75e94d1d338381780be6278534170e99edc03380a6d29bc7eb1563c89ce17c5fed3a0b17f1ad804
+    json5: ^2.1.2
+  checksum: a5281f5fff1eaa310ad5e1164095689443630f3411e927f95031ab4fb83b4a98f388185bb1fe949e8ab8d4247004336a625e9255c22122b815bb9a4c5d8fc3b7
   languageName: node
   linkType: hard
 
@@ -1086,13 +1075,6 @@ __metadata:
   dependencies:
     brace-expansion: ^2.0.1
   checksum: 97f5f5284bb57dc65b9415dec7f17a0f6531a33572193991c60ff18450dcfad5c2dad24ffeaf60b5261dccd63aae58cc3306e2209d57e7f88c51295a532d8ec3
-  languageName: node
-  linkType: hard
-
-"minimist@npm:^1.2.0":
-  version: 1.2.8
-  resolution: "minimist@npm:1.2.8"
-  checksum: 75a6d645fb122dad29c06a7597bddea977258957ed88d7a6df59b5cd3fe4a527e253e9bbf2e783e4b73657f9098b96a5fe96ab8a113655d4109108577ecf85b0
   languageName: node
   linkType: hard
 
@@ -1523,13 +1505,13 @@ __metadata:
   resolution: "webpack-i18n-tools@workspace:."
   dependencies:
     "@types/gettext-parser": ^4.0.2
-    "@types/loader-utils": ^1.1.6
+    "@types/loader-utils": ^2.0.3
     "@types/node": ^20.3.1
     gettext-extractor: ^3.7.2
     gettext-parser: ^7.0.1
     glob: ^10.2.7
     json5: ^2.2.3
-    loader-utils: ^1.2.3
+    loader-utils: ^2.0.4
     parse5-sax-parser: ^7.0.0
     po2json: ^0.4.5
     queue: ^6.0.1
