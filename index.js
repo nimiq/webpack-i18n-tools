@@ -16,7 +16,7 @@ if (
     module.exports = (/** @type {string} */ source) => {
         if (source) {
             // webpack loader
-            const loaderContext = /** @type {import('webpack').loader.LoaderContext} */ (/** @type {unknown} */ (this));
+            const loaderContext = /**@type {import('webpack').LoaderContext<object>}*/ (/**@type {unknown}*/ (this));
             const loader = require('./loader').bind(loaderContext);
             return loader(source);
         } else {

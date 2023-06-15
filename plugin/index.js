@@ -1,13 +1,18 @@
 const JSON5 = require('json5');
-const { ReplaceSource } = require('webpack-sources');
-// @ts-expect-error: @types/webpack does not include types for WebpackError
-const WebpackError = require('webpack/lib/WebpackError');
+// There is currently a discrepancy between the latest @types/webpack-sources@3.2.0 and the types that webpack defines
+// internally for webpack-sources@3.2.3.
+const ReplaceSource = /** @type {typeof import('webpack').sources.ReplaceSource} */ (
+    /** @type {unknown} */ (require('webpack-sources').ReplaceSource));
+const WebpackError = /** @type {typeof import('webpack').WebpackError} */ (require('webpack').WebpackError // webpack 5
+    // @ts-expect-error: @types/webpack does not include types for webpack/lib/WebpackError
+    || require('webpack/lib/WebpackError'));
 
 /**
- * @typedef {import('tapable').Tapable.Plugin} WebpackPlugin
+ * @typedef {import('webpack').WebpackPluginInstance} WebpackPlugin
  * @typedef {import('webpack').Compiler} Compiler
- * @typedef {import('webpack').compilation.Compilation} Compilation
- * @typedef {import('webpack-sources').Source} Source
+ * @typedef {import('webpack').Compilation} Compilation
+ * @typedef {typeof import('webpack').Compilation} CompilationConstructor
+ * @typedef {import('webpack').sources.Source} Source
  * @typedef {{filename: string, source: Source}} AssetInfo
  * @typedef {AssetInfo & {translationsCode: string, prefix: string, suffix: string}} LanguageFileInfo
  */
@@ -61,17 +66,17 @@ class I18nOptimizerPlugin {
 
             if ('processAssets' in compilation.hooks) {
                 // Webpack >= 5
-                // @ts-expect-error: our typescript checking is based on Webpack 4 types.
+                const Compilation = /** @type {CompilationConstructor} */ (compilation.constructor);
                 compilation.hooks.processAssets.tap(
                     {
                         name: this.constructor.name,
-                        // @ts-expect-error
-                        stage: compilation.constructor.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
+                        stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
                     },
                     () => this.optimizeAssets(compilation),
                 );
             } else {
                 // Webpack < 5
+                // @ts-expect-error: our typescript checking is based on Webpack 5 types.
                 compilation.hooks.optimizeChunkAssets.tap(
                     this.constructor.name,
                     () => this.optimizeAssets(compilation),
@@ -237,6 +242,7 @@ class I18nOptimizerPlugin {
             const source = new ReplaceSource(assetInfo.source);
             // note that all replacement positions are relative to initialCode, regardless of other replacements
             const initialCode = source.source();
+            if (typeof initialCode !== 'string') continue;
             let match;
 
             while ((match = usageRegex.exec(initialCode)) !== null) {

@@ -2,7 +2,7 @@ const po2json = require('po2json');
 const utils = require('loader-utils');
 
 /**
- * @this {import('webpack').loader.LoaderContext}
+ * @this {import('webpack').LoaderContext<object>}
  * @param {string | Buffer} source
  * @returns {string}
  */
