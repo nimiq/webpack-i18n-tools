@@ -1,7 +1,13 @@
 const po2json = require('po2json');
 
 /**
- * @this {import('webpack').LoaderContext<object>}
+ * @typedef {import('webpack4types').loader.LoaderContext} Webpack4LoaderContext
+ * @typedef {import('webpack5').LoaderContext<object>} Webpack5LoaderContext
+ * @typedef {Webpack4LoaderContext|Webpack5LoaderContext} WebpackLoaderContext
+ */
+
+/**
+ * @this {WebpackLoaderContext}
  * @param {string | Buffer} source
  * @returns {string}
  */

@@ -1,18 +1,27 @@
 const JSON5 = require('json5');
-// There is currently a discrepancy between the latest @types/webpack-sources@3.2.0 and the types that webpack defines
-// internally for webpack-sources@3.2.3.
-const ReplaceSource = /** @type {typeof import('webpack').sources.ReplaceSource} */ (
+// There is currently a discrepancy between the latest @types/webpack-sources and the types that webpack defines
+// internally for webpack-sources. ReplaceSource from webpack-sources is compatible with Webpack 4 and Webpack 5.
+const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource} */ (
     /** @type {unknown} */ (require('webpack-sources').ReplaceSource));
-const WebpackError = /** @type {typeof import('webpack').WebpackError} */ (require('webpack').WebpackError // webpack 5
-    // @ts-expect-error: @types/webpack does not include types for webpack/lib/WebpackError
-    || require('webpack/lib/WebpackError'));
+// Import WebpackError in a fashion that's compatible with Webpack 4 and Webpack 5 (Webpack 4 does not expose
+// require('webpack').WebpackError).
+// @ts-expect-error: no type definitions for file import. Assume Webpack 5 types because not defined in @types/webpack@4
+const WebpackError = /** @type {typeof import('webpack5').WebpackError} */ (require('webpack/lib/WebpackError'));
 
 /**
- * @typedef {import('webpack').WebpackPluginInstance} WebpackPlugin
- * @typedef {import('webpack').Compiler} Compiler
- * @typedef {import('webpack').Compilation} Compilation
- * @typedef {typeof import('webpack').Compilation} CompilationConstructor
- * @typedef {import('webpack').sources.Source} Source
+ * @typedef {import('tapable1types').Tapable.Plugin} Webpack4Plugin
+ * @typedef {import('webpack4types').Compiler} Webpack4Compiler
+ * @typedef {import('webpack4types').compilation.Compilation} Webpack4Compilation
+ *
+ * @typedef {import('webpack5').WebpackPluginInstance} Webpack5Plugin
+ * @typedef {import('webpack5').Compiler} Webpack5Compiler
+ * @typedef {import('webpack5').Compilation} Webpack5Compilation
+ * @typedef {typeof import('webpack5').Compilation} Webpack5CompilationConstructor
+ *
+ * @typedef {Webpack4Compiler|Webpack5Compiler} WebpackCompiler
+ * @typedef {Webpack4Compilation|Webpack5Compilation} WebpackCompilation
+ *
+ * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources and is compatible with 4 and 5
  * @typedef {{filename: string, source: Source}} AssetInfo
  * @typedef {AssetInfo & {translationsCode: string, prefix: string, suffix: string}} LanguageFileInfo
  */
@@ -50,11 +59,12 @@ const WebpackError = /** @type {typeof import('webpack').WebpackError} */ (requi
  *   See https://stackoverflow.com/a/52906440 for a reduction of this approach to the essential parts (but without
  *   involving the parser).
  *
- *   @implements {WebpackPlugin}
+ *   @implements {Webpack4Plugin}
+ *   @implements {Webpack5Plugin}
  */
 class I18nOptimizerPlugin {
     /**
-     * @param {Compiler} compiler
+     * @param {WebpackCompiler} compiler
      */
     apply(compiler) {
         compiler.hooks.compilation.tap(this.constructor.name, (compilation) => {
@@ -66,7 +76,7 @@ class I18nOptimizerPlugin {
 
             if ('processAssets' in compilation.hooks) {
                 // Webpack >= 5
-                const Compilation = /** @type {CompilationConstructor} */ (compilation.constructor);
+                const Compilation = /** @type {Webpack5CompilationConstructor} */ (compilation.constructor);
                 compilation.hooks.processAssets.tap(
                     {
                         name: this.constructor.name,
@@ -76,7 +86,6 @@ class I18nOptimizerPlugin {
                 );
             } else {
                 // Webpack < 5
-                // @ts-expect-error: our typescript checking is based on Webpack 5 types.
                 compilation.hooks.optimizeChunkAssets.tap(
                     this.constructor.name,
                     () => this.optimizeAssets(compilation),
@@ -86,7 +95,7 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {Compilation} compilation
+     * @param {WebpackCompilation} compilation
      */
     optimizeAssets(compilation) {
         /** @type {{[filename: string]: Source}} */
@@ -332,21 +341,27 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {Compilation} compilation
+     * @param {WebpackCompilation} compilation
      * @param {string} filename
      * @param {Source} source
      */
     updateAsset(compilation, filename, source) {
-        if (compilation.updateAsset) {
-            // Webpack >= 4.40
+        if ('options' in compilation) {
+            // Webpack 5
             compilation.updateAsset(filename, source);
+        } else if ('updateAsset' in compilation) {
+            // Webpack >= 4.40
+            // Source from webpack-sources is compatible with Webpack 4 and Webpack 5, but @types/webpack@4 has
+            // incompatible type definitions from outdated @types/webpack-sources.
+            compilation.updateAsset(filename, /** @type {import('webpack-sources').Source} */ (source));
         } else {
+            // @ts-ignore: Webpack < 4.40
             compilation.assets[filename] = source;
         }
     }
 
     /**
-     * @param {Compilation} compilation
+     * @param {WebpackCompilation} compilation
      * @param {Set<string>} missingTranslations
      * @param {Set<string>} unusedTranslations
      */
@@ -369,9 +384,9 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {Compilation} compilation
+     * @param {WebpackCompilation} compilation
      * @param {string} message
-     * @param {string} [level]
+     * @param {'error' | 'warning'} [level]
      */
     emitCompilationError(compilation, message, level = 'error') {
         const error = new WebpackError(message);
