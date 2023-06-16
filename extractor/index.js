@@ -5,7 +5,6 @@ const GettextExtractor = gettext.GettextExtractor;
 const JsExtractors = gettext.JsExtractors;
 const Readable = require('stream').Readable;
 const glob = require('glob');
-const Queue = require('queue').default;
 
 module.exports = async function(writeToFile = true) {
 
@@ -200,14 +199,13 @@ module.exports = async function(writeToFile = true) {
         }),
     ]);
 
-    // Parse typescript and javascript files.
-    scriptParser.parseFilesGlob('./src/**/*.{ts,js}');
+    try {
+        // Parse typescript and javascript files.
+        scriptParser.parseFilesGlob('./src/**/*.{ts,js}');
 
-    // Parse vue files.
-    const vueFiles = glob.sync("./src/**/*.vue");
-    const vueFileQueue = new Queue({ concurrency: 1 });
-    for (const vueFile of vueFiles) {
-        vueFileQueue.push(async (cb) => {
+        // Parse vue files.
+        const vueFiles = glob.sync("./src/**/*.vue");
+        for (const vueFile of vueFiles) {
             const snippets = await parseVueFile(vueFile)
             for (const { code, line } of snippets) {
                 scriptParser.parseString(
@@ -216,14 +214,8 @@ module.exports = async function(writeToFile = true) {
                     { lineNumberStart: line },
                 );
             }
+        }
 
-            if (!cb) return;
-            cb();
-        });
-    }
-
-    try {
-        await new Promise((resolve, reject) => vueFileQueue.start((error) => (!error ? resolve : reject)(error)));
         extractor.printStats();
 
         if (writeToFile) {

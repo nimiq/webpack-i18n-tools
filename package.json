@@ -16,7 +16,6 @@
     "loader-utils": "^2.0.4",
     "parse5-sax-parser": "^7.0.0",
     "po2json": "^0.4.5",
-    "queue": "^6.0.1",
     "webpack-sources": "^3.2.3"
   },
   "devDependencies": {
