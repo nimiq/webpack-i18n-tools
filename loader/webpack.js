@@ -11,7 +11,7 @@ const po2json = require('po2json');
  * @param {string | Buffer} source
  * @returns {string}
  */
-module.exports = function(source) {
+module.exports = function webpackPoLoader(source) {
     /** @type {object} */
     let options;
     if ('getOptions' in this) {
@@ -25,7 +25,7 @@ module.exports = function(source) {
     }
 
     // Note: the spaces here are important for distinguishing a dev build from a minified production build in
-    // parseLanguageFile in plugin/index.js.
+    // parseLanguageFile in plugin/webpack.js.
     return `module.exports = ${po2json.parse(source, {
         // defaults
         format: 'mf',

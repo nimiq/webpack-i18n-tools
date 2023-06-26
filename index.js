@@ -23,7 +23,7 @@ if (
         if (source) {
             // webpack loader
             const loaderContext = /**@type {WebpackLoaderContext}*/ (/**@type {unknown}*/ (this));
-            const loader = require('./loader').bind(loaderContext);
+            const loader = require('./loader/webpack').bind(loaderContext);
             return loader(source);
         } else {
             // webpack plugin
