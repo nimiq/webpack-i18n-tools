@@ -26,8 +26,8 @@ if (
             const loader = require('./loader/webpack').bind(loaderContext);
             return loader(source);
         } else {
-            // webpack plugin
-            return require('./plugin');
+            // webpack optimizer plugin
+            return require('./optimizer/webpack');
         }
     };
 }

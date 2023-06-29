@@ -2,6 +2,8 @@ const path = require('path');
 const JSON5 = require('json5');
 // There is currently a discrepancy between the latest @types/webpack-sources and the types that webpack defines
 // internally for webpack-sources. ReplaceSource from webpack-sources is compatible with Webpack 4 and Webpack 5.
+// As it can also be used independently of Webpack, we also use it for our rollup builds, as alternative to magic-string
+// which is usually used in rollup plugins.
 const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource} */ (
     /** @type {unknown} */ (require('webpack-sources').ReplaceSource));
 
@@ -18,7 +20,8 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
  * @param {(message: string) => void} emitWarning
  */
 module.exports = function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
-    const referenceLanguageFileInfo = languageChunkInfos.find(({ filename }) => /\ben-/.test(path.basename(filename)));
+    const referenceLanguageFileInfo = languageChunkInfos
+        .find(({ filename }) => /\ben[-.]/.test(path.basename(filename))); // dash in regex for webpack, dot for rollup
     if (!referenceLanguageFileInfo) {
         emitWarning('English reference language file not found.');
         return;
