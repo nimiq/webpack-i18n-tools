@@ -11,8 +11,9 @@ const processChunks = require('./common.js');
  * @typedef {import('rollup').OutputBundle} OutputBundle
  *
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
- * @typedef {{filename: string, source: Source}} ChunkInfo
- * @typedef {ChunkInfo & {translationsCode: string, prefix: string, suffix: string}} LanguageChunkInfo
+ *
+ * @typedef {import('./common').ChunkInfo} ChunkInfo
+ * @typedef {import('./common').LanguageChunkInfo} LanguageChunkInfo
  */
 
 /**
@@ -51,7 +52,7 @@ module.exports = function rollupI18nOptimizerPlugin() {
                         languageChunkInfos.push({
                             filename,
                             source,
-                            ...parseLanguageChunk(fileInfo.code),
+                            ...parseLanguageChunk(fileInfo.code, fileInfo.modules[languageFileModuleName].code || ''),
                         });
                     } catch (e) {
                         this.error(`Failed to parse language file ${languageFileModuleName}. Note that currently `
@@ -80,21 +81,32 @@ module.exports = function rollupI18nOptimizerPlugin() {
 };
 
 /**
- * @param {string} code
+ * @param {string} chunkCode
+ * @param {string} moduleCode
  * @returns {{translationsCode: string, prefix: string, suffix: string}}
  */
-function parseLanguageChunk(code) {
-    const prefix = code.match(/^[^{]*/)?.[0];
-    const suffix = code.match(/;?\s*export\s*\{\w+ as default};?\n?$/)?.[0];
+function parseLanguageChunk(chunkCode, moduleCode) {
+    const prefix = chunkCode.match(/^[^{]*/)?.[0];
+    const suffix = chunkCode.match(/;?\s*export\s*\{\w+ as default};?\n?$/)?.[0];
 
-    if (!prefix || !suffix) throw new Error('Failed to parse language file.');
+    // Rollup modifies the module code when creating the chunk code, which can result in the translationCode not being
+    // valid json, just a Javascript object definition anymore. Notably, this is the case for strings that contain \n
+    // newlines, which rollup transforms into template strings with actual newlines, which are not valid JSON strings
+    // though. Therefore, we extract the json, which is to be parsed later, from the original module code. Note that we
+    // also still need the extracted translation code from the chunk, because that's the code that we modify in the end.
+    // Alternatively, the json or parsed object could also be added as metadata by the loader plugin, which would result
+    // in tighter coupling between the plugins though (https://rollupjs.org/plugin-development/#custom-module-meta-data)
+    const translationsJson = moduleCode.match(/\{.+}/)?.[0];
 
-    const translationsCode = code.substring(prefix.length, code.length - suffix.length);
+    if (!prefix || !suffix || !translationsJson) throw new Error('Failed to parse language file.');
+
+    const translationsCode = chunkCode.substring(prefix.length, chunkCode.length - suffix.length);
 
     return {
         translationsCode,
         prefix,
         suffix,
+        ...(translationsJson !== translationsCode ? { translationsJson } : null),
     };
 }
 

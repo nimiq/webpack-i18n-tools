@@ -18,8 +18,9 @@ const processChunks = require('./common.js');
  * @typedef {Webpack4Compilation|Webpack5Compilation} WebpackCompilation
  *
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
- * @typedef {{filename: string, source: Source}} ChunkInfo
- * @typedef {ChunkInfo & {translationsCode: string, prefix: string, suffix: string}} LanguageChunkInfo
+ *
+ * @typedef {import('./common').ChunkInfo} ChunkInfo
+ * @typedef {import('./common').LanguageChunkInfo} LanguageChunkInfo
  */
 
 /**

@@ -10,7 +10,8 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
 /**
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
  * @typedef {{filename: string, source: Source}} ChunkInfo
- * @typedef {ChunkInfo & {translationsCode: string, prefix: string, suffix: string}} LanguageChunkInfo
+ * @typedef {ChunkInfo
+ *     & {translationsCode: string, translationsJson?: string, prefix: string, suffix: string}} LanguageChunkInfo
  */
 
 /**
@@ -26,7 +27,8 @@ module.exports = function processChunks(languageChunkInfos, otherChunkInfos, upd
         emitWarning('English reference language file not found.');
         return;
     }
-    const parsedReferenceLanguageFile = JSON5.parse(referenceLanguageFileInfo.translationsCode);
+    const parsedReferenceLanguageFile = JSON5.parse(referenceLanguageFileInfo.translationsJson
+        || referenceLanguageFileInfo.translationsCode);
 
     const { missingTranslations, unusedTranslations } =
         optimizeChunks(languageChunkInfos, otherChunkInfos, parsedReferenceLanguageFile);
