@@ -153,15 +153,29 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
     languageChunkInfo.source = source;
 }
 
-const usageRegexPrefixPart = '[$.]t[ec]?\\s*\\(\\s*' // Search for $t / $tc / $te calls
+const TRANSLATION_USAGE_REGEX_PREFIX_PART = '[$.]t[ec]?\\s*\\(\\s*' // Search for $t / $tc / $te calls
     + '|' // or
-    // for i18n interpolation components' paths in vue-loader compiled template render functions
+    // for vue2 compatible vue-i18n <v9 <i18n> interpolation components' paths in vue-template-compiler compiled
+    // template render functions
     + `${matchString('i18n')}\\s*,.*?` // detected within the i18n component
     + `(?:attrs|${matchString('attrs')})\\s*:.*?` // attributes which contain
-    + `(?:path|${matchString('path')})\\s*:\\s*`; // the path which is the translation key
+    + `(?:path|${matchString('path')})\\s*:\\s*` // the path which is the translation key
+    + '|' // or
+    // for vue3 compatible vue-i18n >=v9 <i18n-t> interpolation components' keypath in @vue/compiler-sfc compiled
+    // template render functions
+    + '\\w+\\(\\s*' // vue3's createVNode (which render functions' h is a wrapper for) or createBlock (which is a
+        // private utility similar to createVNode with dynamic children, see vue source code) call, which is minified to
+        // an arbitrary name
+    + '\\w+\\s*,\\s*' // first argument to createVNode/createBlock which is the node type, here i18n-t definition which
+        // gets imported in advance via resolveComponent into a variable which is minified to an arbitrary name
+    + '\\{[^}]*?' // second argument to createVNode/createBlock which is an object containing the prop definitions
+    + `(?:keypath|${matchString('keypath')})\\s*:\\s*`; // the keypath prop definition which is the translation key
 // Match the translation key which is a (potentially concatenated) string
-const usageRegexTranslationKeyPart = `(?:${matchString()}\\s*\\+\\s*)*${matchString()}`;
-const TRANSLATION_USAGE_REGEX = new RegExp(`(${usageRegexPrefixPart})(${usageRegexTranslationKeyPart})`, 'gs');
+const TRANSLATION_USAGE_REGEX_TRANSLATION_KEY_PART = `(?:${matchString()}\\s*\\+\\s*)*${matchString()}`;
+const TRANSLATION_USAGE_REGEX = new RegExp(
+    `(${TRANSLATION_USAGE_REGEX_PREFIX_PART})(${TRANSLATION_USAGE_REGEX_TRANSLATION_KEY_PART})`,
+    'gs',
+);
 
 /**
  * @param {ChunkInfo} chunkInfo

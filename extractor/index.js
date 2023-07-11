@@ -120,10 +120,11 @@ module.exports = async function(writeToFile = true) {
                                 line: attributeLocations[attr.name].startLine,
                             });
                         }
-                        // vue-i18n component interpolation, path attr
-                        if (tagName === 'i18n' && (attr.name === 'path' || attr.name === ':path')) {
+                        // vue-i18n component interpolation. Called "i18n" until vue-i18n v9 with message in attribute
+                        // "path", and starting with v9 "i18n-t" with attribute "keypath".
+                        if (/^i18n(-t)?$/.test(tagName) && /^:?(key)?path$/.test(attr.name)) {
                             // wrap the path / key in a js snippet including $t for detection by the javascript parser
-                            const stringDelimiter = attr.name === 'path'
+                            const stringDelimiter = !attr.name.startsWith(':')
                                 ? ['"', '\'', '`'].find((delimiter) => !attr.value.includes(delimiter))
                                 : ''; // none required as the value is already a js snippet with strings marked as such
                             const code = `$t(${stringDelimiter}${attr.value}${stringDelimiter})`;
@@ -216,6 +217,7 @@ module.exports = async function(writeToFile = true) {
             }
         }
 
+        console.log('i18n extractor stats (note that the file count includes not only files but all parsed snippets):');
         extractor.printStats();
 
         if (writeToFile) {

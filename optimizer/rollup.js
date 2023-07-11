@@ -30,7 +30,8 @@ module.exports = function rollupI18nOptimizerPlugin() {
         // hook. However, this complicates things because then, en.po as reference file needs to manually be loaded
         // first via load() and caches of all modules need to be invalidated via shouldTransformCachedModule and
         // potentially be retriggered via load() of the modules. On the other hand, additional advantages would be that
-        // our modifications are reflected in file hashes, and createFilter could be used.
+        // we would not need to work on already minified code, our modifications are reflected in file hashes, and
+        // createFilter could be used.
         apply: 'build', // see https://vitejs.dev/guide/api-plugin.html#conditional-application
 
         generateBundle(outputOptions, bundle) {
