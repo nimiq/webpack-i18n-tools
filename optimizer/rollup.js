@@ -88,7 +88,7 @@ module.exports = function rollupI18nOptimizerPlugin() {
  */
 function parseLanguageChunk(chunkCode, moduleCode) {
     const prefix = chunkCode.match(/^[^{]*/)?.[0];
-    const suffix = chunkCode.match(/;?\s*export\s*\{\w+ as default};?\n?$/)?.[0];
+    const suffix = chunkCode.match(/;?\s*export\s*\{\s*\w+ as default\s*};?\n?$/)?.[0];
 
     // Rollup modifies the module code when creating the chunk code, which can result in the translationCode not being
     // valid json, just a Javascript object definition anymore. Notably, this is the case for strings that contain \n
