@@ -78,7 +78,7 @@ function optimizeChunks(languageChunkInfos, otherChunkInfos, parsedReferenceLang
 }
 
 const LANGUAGE_CHUNK_ENTRY_REGEX = new RegExp(
-    `([^\\s"'\`]+?|${matchString()})` // translation key (either as direct object key or string key)
+    `([^{,\\s"'\`]+?|${matchString()})` // translation key (either as direct object key or string key)
     + '(\\s*:\\s*)' // double colon
     + `(${matchString()})`, // translation with string delimiters
     'g',
