@@ -30,9 +30,23 @@ module.exports = function rollupI18nOptimizerPlugin() {
         // hook. However, this complicates things because then, en.po as reference file needs to manually be loaded
         // first via load() and caches of all modules need to be invalidated via shouldTransformCachedModule and
         // potentially be retriggered via load() of the modules. On the other hand, additional advantages would be that
-        // we would not need to work on already minified code, our modifications are reflected in file hashes, and
-        // createFilter could be used.
+        // we would not need to work on already minified code, our modifications are automatically reflected in file
+        // hashes, and createFilter could be used.
         apply: 'build', // see https://vitejs.dev/guide/api-plugin.html#conditional-application
+
+        // Augment content hashes of translation files with contents of the source language file. This is because the
+        // content of the compiled translation file does not only depend on the translation po file, but also on the
+        // source language file for added fallback translations and for translation indices.
+        augmentChunkHash(chunk) {
+            if (!chunk.facadeModuleId || !/(?<!\ben)\.po$/.test(chunk.facadeModuleId)) return; // not a translation
+            const referenceLanguageModuleId = [...this.getModuleIds()].find((moduleId) => /\ben\.po$/.test(moduleId));
+            const referenceLanguageModuleInfo = this.getModuleInfo(referenceLanguageModuleId || '');
+            if (!referenceLanguageModuleInfo || !referenceLanguageModuleInfo.code) {
+                this.error('Reference language module en.po not found');
+                return;
+            }
+            return referenceLanguageModuleInfo.code;
+        },
 
         generateBundle(outputOptions, bundle) {
             // categorize assets and parse language files

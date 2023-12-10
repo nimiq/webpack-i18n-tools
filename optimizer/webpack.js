@@ -1,3 +1,4 @@
+const { createHash } = require('crypto');
 // Import WebpackError in a fashion that's compatible with Webpack 4 and Webpack 5 (Webpack 4 does not expose
 // require('webpack').WebpackError).
 // @ts-expect-error: no type definitions for file import. Assume Webpack 5 types because not defined in @types/webpack@4
@@ -8,14 +9,21 @@ const processChunks = require('./common.js');
  * @typedef {import('tapable1types').Tapable.Plugin} Webpack4Plugin
  * @typedef {import('webpack4types').Compiler} Webpack4Compiler
  * @typedef {import('webpack4types').compilation.Compilation} Webpack4Compilation
+ * @typedef {import('webpack4types').compilation.Chunk} Webpack4Chunk
+ * @typedef {import('webpack4types').compilation.ChunkHash} Webpack4ChunkHash
  *
  * @typedef {import('webpack5').WebpackPluginInstance} Webpack5Plugin
  * @typedef {import('webpack5').Compiler} Webpack5Compiler
  * @typedef {import('webpack5').Compilation} Webpack5Compilation
  * @typedef {typeof import('webpack5').Compilation} Webpack5CompilationConstructor
+ * @typedef {import('webpack5').Chunk} Webpack5Chunk
+ * @typedef {ReturnType<import('webpack5').util.createHash>} Webpack5Hash
  *
  * @typedef {Webpack4Compiler|Webpack5Compiler} WebpackCompiler
  * @typedef {Webpack4Compilation|Webpack5Compilation} WebpackCompilation
+ * @typedef {Webpack4Chunk|Webpack5Chunk} WebpackChunk
+ * @typedef {Webpack4ChunkHash|Webpack5Hash} WebpackChunkHash
+ * @typedef {import('webpack5').PathData} WebpackPathData - Not properly typed in Webpack 4
  *
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
  *
@@ -64,11 +72,41 @@ class I18nOptimizerPlugin {
      * @param {WebpackCompiler} compiler
      */
     apply(compiler) {
-        compiler.hooks.compilation.tap(this.constructor.name, (compilation) => {
+        const pluginName = this.constructor.name;
+
+        compiler.hooks.compilation.tap(pluginName, (compilation) => {
             if (typeof compiler.options.devtool === 'string' && compiler.options.devtool.includes('eval')) {
-                this.emitCompilationError(compilation, `${this.constructor.name} is currently not compatible with eval `
-                    + 'devtool settings. Please use a different setting like `source-map`.');
+                this.emitCompilationError(compilation, `${pluginName} is currently not compatible with eval devtool `
+                    + 'settings. Please use a different setting like `source-map`.');
                 return;
+            }
+
+            if (!('options' in compilation) || compilation.options.optimization.realContentHash === false) {
+                // Webpack 4 or Webpack >= 5 with disabled realContentHash.
+                // Augment content hashes of translation files with contents of the source language file. This is
+                // because the content of the compiled translation file does not only depend on the translation po file,
+                // but also on the source language file for added fallback translations and for translation indices. We
+                // need to process hashes separately before the processAssets hook, because at processAssets, content
+                // hashes and filenames are already finalized.
+                // Note that Webpack uses independent, newly calculated hashes at filename generation time, instead of
+                // using hashes generated via the chunkHash hook (see calculation of contentHash and the assetPath in
+                // AssetGenerator) which is pretty unexpected and stupid... To change the actual filenames, we tap into
+                // the assetPath hook separately but also keep the chunkHash hook for good measure.
+                // Note that starting with Webpack 5 actual file hashes of the final generated files are calculated by
+                // default, unless realContentHash is explicitly disabled, which is the case in projects build with
+                // vue-cli.
+                compilation.hooks.chunkHash.tap(
+                    pluginName,
+                    (chunk, chunkHash) => this.augmentTranslationChunkHash(chunk, chunkHash, compilation),
+                );
+                compilation.hooks.assetPath.tap(
+                    pluginName,
+                    (pathTemplate, pathData) => this.augmentTranslationAssetPathHash(
+                        pathTemplate,
+                        pathData,
+                        compilation,
+                    ),
+                );
             }
 
             if ('processAssets' in compilation.hooks) {
@@ -76,19 +114,78 @@ class I18nOptimizerPlugin {
                 const Compilation = /** @type {Webpack5CompilationConstructor} */ (compilation.constructor);
                 compilation.hooks.processAssets.tap(
                     {
-                        name: this.constructor.name,
+                        name: pluginName,
                         stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
                     },
                     () => this.processAssets(compilation),
                 );
             } else {
                 // Webpack < 5
-                compilation.hooks.optimizeChunkAssets.tap(
-                    this.constructor.name,
-                    () => this.processAssets(compilation),
-                );
+                compilation.hooks.optimizeChunkAssets.tap(pluginName, () => this.processAssets(compilation));
             }
         });
+    }
+
+    /**
+     * @param {WebpackChunk} chunk
+     * @param {WebpackChunkHash} chunkHash
+     * @param {WebpackCompilation} compilation
+     */
+    augmentTranslationChunkHash(chunk, chunkHash, compilation) {
+        if (!chunk.name || !/(?<!\ben)-po$/.test(chunk.name)) return; // not a language chunk or English reference chunk
+        const referenceLanguageModuleHash = this.getReferenceLanguageModuleHash(compilation);
+        chunkHash.update(referenceLanguageModuleHash);
+    }
+
+    /**
+     * @param {string} pathTemplate
+     * @param {WebpackPathData} pathData
+     * @param {WebpackCompilation} compilation
+     * @returns {string}
+     */
+    augmentTranslationAssetPathHash(pathTemplate, pathData, compilation) {
+        if (!pathData.chunk?.name || !/(?<!\ben)-po$/.test(pathData.chunk.name)) {
+            // Not a language chunk or English reference language chunk.
+            return pathTemplate;
+        }
+        const referenceLanguageModuleHash = this.getReferenceLanguageModuleHash(compilation);
+        if (!referenceLanguageModuleHash) return pathTemplate;
+        const hashDigest = compilation.outputOptions.hashDigest;
+        if (pathData.contentHash) {
+            pathData.contentHash = createHash('sha256')
+                .update(pathData.contentHash)
+                .update(referenceLanguageModuleHash)
+                .digest()
+                .toString(hashDigest);
+        }
+        if (pathData.chunk.contentHash?.javascript) {
+            pathData.chunk.contentHash.javascript = createHash('sha256')
+                .update(pathData.chunk.contentHash.javascript)
+                .update(referenceLanguageModuleHash)
+                .digest()
+                .toString(hashDigest);
+        }
+        return pathTemplate;
+    }
+
+    /**
+     * @param {WebpackCompilation} compilation
+     * @returns {string | null}
+     */
+    getReferenceLanguageModuleHash(compilation) {
+        const referenceLanguageModule = [...compilation.modules].find((module) => /\ben\.po$/.test(module.resource));
+        if (!referenceLanguageModule) {
+            this.emitCompilationError(
+                compilation,
+                `${this.constructor.name}: Reference language module en.po not found`,
+            );
+            return null;
+        }
+        return 'chunkGraph' in compilation && 'getModuleHash' in compilation.chunkGraph
+            // Webpack 5
+            ? compilation.chunkGraph.getModuleHash(referenceLanguageModule, undefined)
+            // Webpack 4
+            : referenceLanguageModule.hash;
     }
 
     /**
