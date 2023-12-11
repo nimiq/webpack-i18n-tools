@@ -3,6 +3,11 @@ const { createHash } = require('crypto');
 // require('webpack').WebpackError).
 // @ts-expect-error: no type definitions for file import. Assume Webpack 5 types because not defined in @types/webpack@4
 const WebpackError = /** @type {typeof import('webpack5').WebpackError} */ (require('webpack/lib/WebpackError'));
+// Import JavascriptModulesPlugin for Webpack 5 only. While it exists for Webpack 4 too, it doesn't support what we want
+// to use it for, has not types defined, and is not directly exposed on the webpack namespace.
+const Webpack5JavascriptModulesPlugin = parseInt(require('webpack').version || '4') >= 5
+    ? /** @type {import('webpack5')} */(/** @type {unknown} */ (require('webpack'))).javascript.JavascriptModulesPlugin
+    : null;
 const processChunks = require('./common.js');
 
 /**
@@ -88,10 +93,15 @@ class I18nOptimizerPlugin {
                 // but also on the source language file for added fallback translations and for translation indices. We
                 // need to process hashes separately before the processAssets hook, because at processAssets, content
                 // hashes and filenames are already finalized.
-                // Note that Webpack uses independent, newly calculated hashes at filename generation time, instead of
-                // using hashes generated via the chunkHash hook (see calculation of contentHash and the assetPath in
-                // AssetGenerator) which is pretty unexpected and stupid... To change the actual filenames, we tap into
-                // the assetPath hook separately but also keep the chunkHash hook for good measure.
+                // Note that Webpack works with multiple, independent hashes for internal purposes and content hashes in
+                // filenames, such that hash changes made via the chunkHash compilation hook don't affect the filename
+                // hashes, which is pretty unexpected and stupid... Instead, we need to patch contentHashes in filenames
+                // separately via the chunkHash hook of the JavascriptModulesPlugin, which calculates the contentHash of
+                // javascript files. This possibility only exists since Webpack 5, such that we use a hack in Webpack 4
+                // to overwrite the contentHash set by JavascriptModulesPlugin via a custom setter and getter.
+                // Previously, we also tried using the assetPath hook responsible for calculating final filenames, but
+                // which only resulted in the filenames being changed, without the names in imports being changed
+                // accordingly, which again is very stupid...
                 // Note that starting with Webpack 5 actual file hashes of the final generated files are calculated by
                 // default, unless realContentHash is explicitly disabled, which is the case in projects build with
                 // vue-cli.
@@ -99,14 +109,23 @@ class I18nOptimizerPlugin {
                     pluginName,
                     (chunk, chunkHash) => this.augmentTranslationChunkHash(chunk, chunkHash, compilation),
                 );
-                compilation.hooks.assetPath.tap(
-                    pluginName,
-                    (pathTemplate, pathData) => this.augmentTranslationAssetPathHash(
-                        pathTemplate,
-                        pathData,
-                        compilation,
-                    ),
-                );
+                if (Webpack5JavascriptModulesPlugin) {
+                    // Webpack 5.
+                    const javascriptModulesPluginHooks = Webpack5JavascriptModulesPlugin.getCompilationHooks(
+                        /** @type {Webpack5Compilation} */ (compilation));
+                    javascriptModulesPluginHooks.chunkHash.tap(
+                        pluginName,
+                        (chunk, chunkHash) => this.augmentTranslationChunkHash(chunk, chunkHash, compilation),
+                    );
+                } else if ('contentHash' in compilation.hooks) {
+                    // Webpack 4.
+                    // Note that the contentHash hook exists in Webpack 4 already, but is not documented and does not
+                    // appear in the types. Maybe it did not exist in older versions of Webpack 4 yet.
+                    compilation.hooks.contentHash.tap(
+                        pluginName,
+                        (chunk) => this.augmentTranslationContentHash(chunk, compilation),
+                    );
+                }
             }
 
             if ('processAssets' in compilation.hooks) {
@@ -138,34 +157,29 @@ class I18nOptimizerPlugin {
     }
 
     /**
-     * @param {string} pathTemplate
-     * @param {WebpackPathData} pathData
+     * @param {WebpackChunk} chunk
      * @param {WebpackCompilation} compilation
-     * @returns {string}
      */
-    augmentTranslationAssetPathHash(pathTemplate, pathData, compilation) {
-        if (!pathData.chunk?.name || !/(?<!\ben)-po$/.test(pathData.chunk.name)) {
-            // Not a language chunk or English reference language chunk.
-            return pathTemplate;
-        }
+    augmentTranslationContentHash(chunk, compilation) {
+        if (!chunk.name || !/(?<!\ben)-po$/.test(chunk.name)) return; // not a language chunk or English reference chunk
         const referenceLanguageModuleHash = this.getReferenceLanguageModuleHash(compilation);
-        if (!referenceLanguageModuleHash) return pathTemplate;
+        if (!referenceLanguageModuleHash) return;
+        // Hacky way of customizing chunk.contentHash.javascript set by JavascriptModulesPlugin in Webpack 4, which
+        // does not provide a hook for augmenting the hash yet.
+        let augmentedHash = referenceLanguageModuleHash;
         const hashDigest = compilation.outputOptions.hashDigest;
-        if (pathData.contentHash) {
-            pathData.contentHash = createHash('sha256')
-                .update(pathData.contentHash)
-                .update(referenceLanguageModuleHash)
-                .digest()
-                .toString(hashDigest);
-        }
-        if (pathData.chunk.contentHash?.javascript) {
-            pathData.chunk.contentHash.javascript = createHash('sha256')
-                .update(pathData.chunk.contentHash.javascript)
-                .update(referenceLanguageModuleHash)
-                .digest()
-                .toString(hashDigest);
-        }
-        return pathTemplate;
+        Object.defineProperty(chunk.contentHash, 'javascript', {
+            get() {
+                return augmentedHash;
+            },
+            set(hash) {
+                augmentedHash = createHash('sha256')
+                    .update(referenceLanguageModuleHash)
+                    .update(hash)
+                    .digest()
+                    .toString(hashDigest);
+            },
+        });
     }
 
     /**
