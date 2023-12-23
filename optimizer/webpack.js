@@ -8,7 +8,7 @@ const WebpackError = /** @type {typeof import('webpack5').WebpackError} */ (requ
 const Webpack5JavascriptModulesPlugin = parseInt(require('webpack').version || '4') >= 5
     ? /** @type {import('webpack5')} */(/** @type {unknown} */ (require('webpack'))).javascript.JavascriptModulesPlugin
     : null;
-const processChunks = require('./common.js');
+const { parseLanguageFile, processChunks } = require('./common.js');
 
 /**
  * @typedef {import('tapable1types').Tapable.Plugin} Webpack4Plugin
@@ -223,7 +223,7 @@ class I18nOptimizerPlugin {
                     languageChunkInfos.push({
                         filename,
                         source,
-                        ...this.parseLanguageChunk(sourceContent),
+                        ...parseLanguageFile(sourceContent),
                     });
                 } catch (e) {
                     this.emitCompilationError(compilation, `${this.constructor.name}: Failed to parse language file `
@@ -248,37 +248,6 @@ class I18nOptimizerPlugin {
             const errorMessage = e instanceof Error ? e.message : String(e);
             this.emitCompilationError(compilation, errorMessage);
         }
-    }
-
-    /**
-     * @param {string} code
-     * @returns {{translationsCode: string, prefix: string, suffix: string}}
-     */
-    parseLanguageChunk(code) {
-        const PREFIX_BUILD = /^.*?exports=/s;
-        const SUFFIX_BUILD = /}}]\);.*$/s;
-
-        const PREFIX_SERVE = /^.*?exports = /s;
-        const SUFFIX_SERVE = /\n{2}\/\*{3}\/ }\).*$/s;
-
-        let prefix, suffix;
-        if (!code.match(PREFIX_BUILD)) {
-            prefix = code.match(PREFIX_SERVE)?.[0];
-            suffix = code.match(SUFFIX_SERVE)?.[0];
-        } else {
-            prefix = code.match(PREFIX_BUILD)?.[0];
-            suffix = code.match(SUFFIX_BUILD)?.[0];
-        }
-
-        if (!prefix || !suffix) throw new Error('Failed to parse language file.');
-
-        const translationsCode = code.substring(prefix.length, code.length - suffix.length);
-
-        return {
-            translationsCode,
-            prefix,
-            suffix,
-        };
     }
 
     /**

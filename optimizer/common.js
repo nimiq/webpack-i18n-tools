@@ -14,13 +14,41 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
  *     & {translationsCode: string, translationsJson?: string, prefix: string, suffix: string}} LanguageChunkInfo
  */
 
+// Groups in this regex are capturing groups as they're used in optimizeLanguageChunk
+const TRANSLATION_ENTRY_REGEX = new RegExp(
+    `([^{,\\s"'\`]+?|${matchString()})` // translation key (either as direct object key or string key)
+    + '(\\s*:\\s*)' // double colon
+    + `(${matchString()})`, // translation with string delimiters
+    'g',
+);
+
+const TRANSLATION_OBJECT_REGEX = new RegExp(
+    '\\{\\s*' // object's opening bracket
+    + `(?:${TRANSLATION_ENTRY_REGEX.source}\\s*,\\s*)*` // arbitrary number of comma separated translation entries
+    + `(?:${TRANSLATION_ENTRY_REGEX.source}\\s*,?\\s*)?` // after last entry, comma is optional. Also allow 0 entries.
+    + '\\s*}', // object's closing bracket
+);
+
+/**
+ * @param {string} code
+ * @returns {{translationsCode: string, prefix: string, suffix: string}}
+ */
+function parseLanguageFile(code) {
+    const match = code.match(TRANSLATION_OBJECT_REGEX);
+    if (!match) throw new Error('Failed to parse language file.');
+    const translationsCode = match[0];
+    const prefix = code.substring(0, match.index);
+    const suffix  = code.substring(prefix.length + translationsCode.length);
+    return { translationsCode, prefix, suffix };
+}
+
 /**
  * @param {LanguageChunkInfo[]} languageChunkInfos
  * @param {ChunkInfo[]} otherChunkInfos
  * @param {(filename: string, source: Source) => void} updateChunk
  * @param {(message: string) => void} emitWarning
  */
-module.exports = function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
+function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
     const referenceLanguageFileInfo = languageChunkInfos
         .find(({ filename }) => /\ben[-.]/.test(path.basename(filename))); // dash in regex for webpack, dot for rollup
     if (!referenceLanguageFileInfo) {
@@ -41,7 +69,7 @@ module.exports = function processChunks(languageChunkInfos, otherChunkInfos, upd
         unusedTranslations,
         emitWarning,
     );
-};
+}
 
 /**
  * @param {LanguageChunkInfo[]} languageChunkInfos
@@ -77,13 +105,6 @@ function optimizeChunks(languageChunkInfos, otherChunkInfos, parsedReferenceLang
     return { missingTranslations, unusedTranslations };
 }
 
-const LANGUAGE_CHUNK_ENTRY_REGEX = new RegExp(
-    `([^{,\\s"'\`]+?|${matchString()})` // translation key (either as direct object key or string key)
-    + '(\\s*:\\s*)' // double colon
-    + `(${matchString()})`, // translation with string delimiters
-    'g',
-);
-
 /**
  * @param {LanguageChunkInfo} languageChunkInfo
  * @param {Record<string, number>} translationKeyIndexMap
@@ -108,7 +129,7 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
     const source = new ReplaceSource(originalSource);
     let match;
 
-    while ((match = LANGUAGE_CHUNK_ENTRY_REGEX.exec(translationsCode)) !== null) {
+    while ((match = TRANSLATION_ENTRY_REGEX.exec(translationsCode)) !== null) {
         const [, matchedTranslationKey, matchedDoubleColon, matchedTranslation] = match;
         const matchPosition = prefix.length + match.index;
         const translationKey = normalizeString(matchedTranslationKey);
@@ -273,3 +294,8 @@ function matchString(expectedString = null) {
         return `(?:"${escapedString}"|'${escapedString}'|\`${escapedString}\`)`;
     }
 }
+
+module.exports = {
+    parseLanguageFile,
+    processChunks,
+};

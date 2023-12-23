@@ -4,7 +4,7 @@ const path = require('path');
 // defines internally for webpack-sources.
 const OriginalSource = /** @type {typeof import('webpack5').sources.OriginalSource} */ (
     /** @type {unknown} */ (require('webpack-sources').OriginalSource));
-const processChunks = require('./common.js');
+const { parseLanguageFile, processChunks } = require('./common.js');
 
 /**
  * @typedef {import('rollup').Plugin} RollupPlugin
@@ -98,11 +98,10 @@ module.exports = function rollupI18nOptimizerPlugin() {
 /**
  * @param {string} chunkCode
  * @param {string} moduleCode
- * @returns {{translationsCode: string, prefix: string, suffix: string}}
+ * @returns {{translationsCode: string, translationsJson?: string, prefix: string, suffix: string}}
  */
 function parseLanguageChunk(chunkCode, moduleCode) {
-    const prefix = chunkCode.match(/^[^{]*/)?.[0];
-    const suffix = chunkCode.match(/;?\s*export\s*\{\s*\w+ as default\s*};?\n?$/)?.[0];
+    const { translationsCode, prefix, suffix } = parseLanguageFile(chunkCode);
 
     // Rollup modifies the module code when creating the chunk code, which can result in the translationCode not being
     // valid json, just a Javascript object definition anymore. Notably, this is the case for strings that contain \n
@@ -111,11 +110,7 @@ function parseLanguageChunk(chunkCode, moduleCode) {
     // also still need the extracted translation code from the chunk, because that's the code that we modify in the end.
     // Alternatively, the json or parsed object could also be added as metadata by the loader plugin, which would result
     // in tighter coupling between the plugins though (https://rollupjs.org/plugin-development/#custom-module-meta-data)
-    const translationsJson = moduleCode.match(/\{.+}/)?.[0];
-
-    if (!prefix || !suffix || !translationsJson) throw new Error('Failed to parse language file.');
-
-    const translationsCode = chunkCode.substring(prefix.length, chunkCode.length - suffix.length);
+    const translationsJson = parseLanguageFile(moduleCode).translationsCode;
 
     return {
         translationsCode,
