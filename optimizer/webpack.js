@@ -8,7 +8,7 @@ const WebpackError = /** @type {typeof import('webpack5').WebpackError} */ (requ
 const Webpack5JavascriptModulesPlugin = parseInt(require('webpack').version || '4') >= 5
     ? /** @type {import('webpack5')} */(/** @type {unknown} */ (require('webpack'))).javascript.JavascriptModulesPlugin
     : null;
-const { parseLanguageFile, processChunks } = require('./common.js');
+const processChunks = require('./common.js');
 
 /**
  * @typedef {import('tapable1types').Tapable.Plugin} Webpack4Plugin
@@ -216,22 +216,8 @@ class I18nOptimizerPlugin {
         const otherChunkInfos = [];
         for (const [filename, source] of Object.entries(chunks)) {
             if (!filename.endsWith('.js') || filename.includes('chunk-vendors')) continue;
-            const sourceContent = source.source();
-            if (typeof sourceContent !== 'string') continue;
             if (/-po(?:-legacy)?(?:\.[^.]*)?\.js$/.test(filename)) {
-                try {
-                    languageChunkInfos.push({
-                        filename,
-                        source,
-                        ...parseLanguageFile(sourceContent),
-                    });
-                } catch (e) {
-                    this.emitCompilationError(compilation, `${this.constructor.name}: Failed to parse language file `
-                        + `${filename}. Note that currently bundling of language files is not supported by our webpack `
-                        + 'plugin. Each language file has to be its own chunk. Also, using EvalSourceMapDevToolPlugin '
-                        + 'or EvalDevToolModulePlugin is currently not supported.');
-                    return;
-                }
+                languageChunkInfos.push({ filename, source });
             } else {
                 otherChunkInfos.push({ filename, source });
             }
@@ -245,7 +231,12 @@ class I18nOptimizerPlugin {
                 (warning) => this.emitCompilationError(compilation, warning, 'warning'),
             );
         } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : String(e);
+            let errorMessage = e instanceof Error ? e.message : String(e);
+            if (errorMessage.includes('Failed to parse')) {
+                errorMessage += ' Note that currently bundling of language files is not supported by our webpack '
+                    + 'plugin. Each language file has to be its own chunk. Also, using EvalSourceMapDevToolPlugin '
+                    + 'or EvalDevToolModulePlugin is currently not supported.';
+            }
             this.emitCompilationError(compilation, errorMessage);
         }
     }

@@ -10,8 +10,12 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
 /**
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
  * @typedef {{filename: string, source: Source}} ChunkInfo
- * @typedef {ChunkInfo
- *     & {translationsCode: string, translationsJson?: string, prefix: string, suffix: string}} LanguageChunkInfo
+ * @typedef {ChunkInfo & { moduleCode?: string }} LanguageChunkInfo
+ * @typedef {LanguageChunkInfo & {
+ *     translations: Record<string, string>,
+ *     translationsCode: string,
+ *     translationsCodePosition: number,
+ * }} ParsedLanguageChunkInfo
  */
 
 // Groups in this regex are capturing groups as they're used in optimizeLanguageChunk
@@ -30,16 +34,26 @@ const TRANSLATION_OBJECT_REGEX = new RegExp(
 );
 
 /**
- * @param {string} code
- * @returns {{translationsCode: string, prefix: string, suffix: string}}
+ * @param {LanguageChunkInfo} languageChunk
+ * @returns {ParsedLanguageChunkInfo}
  */
-function parseLanguageFile(code) {
-    const match = code.match(TRANSLATION_OBJECT_REGEX);
+function parseLanguageChunk(languageChunk) {
+    const chunkCode = languageChunk.source.source();
+    if (typeof chunkCode !== 'string') throw new Error('Failed to parse language file.');
+    const match = chunkCode.match(TRANSLATION_OBJECT_REGEX);
     if (!match) throw new Error('Failed to parse language file.');
     const translationsCode = match[0];
-    const prefix = code.substring(0, match.index);
-    const suffix  = code.substring(prefix.length + translationsCode.length);
-    return { translationsCode, prefix, suffix };
+    const translationsCodePosition = match.index;
+    const translations = JSON5.parse(languageChunk.moduleCode // parse less processed code
+        ? languageChunk.moduleCode.match(TRANSLATION_OBJECT_REGEX)?.[0] || 'null'
+        : translationsCode);
+    if (!translationsCodePosition || !translations) throw new Error('Failed to parse language file.');
+    return {
+        ...languageChunk,
+        translations,
+        translationsCode,
+        translationsCodePosition,
+    };
 }
 
 /**
@@ -48,19 +62,11 @@ function parseLanguageFile(code) {
  * @param {(filename: string, source: Source) => void} updateChunk
  * @param {(message: string) => void} emitWarning
  */
-function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
-    const referenceLanguageFileInfo = languageChunkInfos
-        .find(({ filename }) => /\ben[-.]/.test(path.basename(filename))); // dash in regex for webpack, dot for rollup
-    if (!referenceLanguageFileInfo) {
-        emitWarning('English reference language file not found.');
-        return;
-    }
-    const parsedReferenceLanguageFile = JSON5.parse(referenceLanguageFileInfo.translationsJson
-        || referenceLanguageFileInfo.translationsCode);
+module.exports = function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
+    const parsedLanguageChunkInfos = languageChunkInfos.map(parseLanguageChunk);
 
-    const { missingTranslations, unusedTranslations } =
-        optimizeChunks(languageChunkInfos, otherChunkInfos, parsedReferenceLanguageFile);
-    for (const {filename, source} of [...languageChunkInfos, ...otherChunkInfos]) {
+    const { missingTranslations, unusedTranslations } = optimizeChunks(parsedLanguageChunkInfos, otherChunkInfos);
+    for (const {filename, source} of [...parsedLanguageChunkInfos, ...otherChunkInfos]) {
         updateChunk(filename, source);
     }
 
@@ -72,17 +78,21 @@ function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWar
 }
 
 /**
- * @param {LanguageChunkInfo[]} languageChunkInfos
+ * @param {ParsedLanguageChunkInfo[]} languageChunkInfos
  * @param {ChunkInfo[]} otherChunkInfos
- * @param {Record<string, string>} parsedReferenceLanguageFile
  * @returns {{missingTranslations: Set<string>, unusedTranslations: Set<string>}}
  */
-function optimizeChunks(languageChunkInfos, otherChunkInfos, parsedReferenceLanguageFile) {
+function optimizeChunks(languageChunkInfos, otherChunkInfos) {
     /** @type {Record<string, number>} */
     const translationKeyIndexMap = {};
     /** @type {Record<string, string>} */
     const fallbackTranslations = {};
-    Object.entries(parsedReferenceLanguageFile).forEach(([key, value], index) => {
+
+    const referenceLanguageChunkInfo = languageChunkInfos
+        .find(({ filename }) => /\ben[-.]/.test(path.basename(filename))); // dash in regex for webpack, dot for rollup
+    if (!referenceLanguageChunkInfo) throw('English reference language file not found.');
+
+    Object.entries(referenceLanguageChunkInfo.translations).forEach(([key, value], index) => {
         const normalizedKey = normalizeString(key);
         translationKeyIndexMap[normalizedKey] = index;
         fallbackTranslations[normalizedKey] = normalizeString(value);
@@ -106,7 +116,7 @@ function optimizeChunks(languageChunkInfos, otherChunkInfos, parsedReferenceLang
 }
 
 /**
- * @param {LanguageChunkInfo} languageChunkInfo
+ * @param {ParsedLanguageChunkInfo} languageChunkInfo
  * @param {Record<string, number>} translationKeyIndexMap
  * @param {Record<string, string>} fallbackTranslations
  */
@@ -115,13 +125,7 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
     // translation is available.
 
     const missingTranslations = new Set(Object.keys(translationKeyIndexMap));
-    const { source: originalSource, translationsCode, prefix, suffix } = languageChunkInfo;
-
-    const originalCode = originalSource.source();
-    if (typeof originalCode !== 'string') return; // Binary file. Shouldn't happen for parsed language files.
-    if (originalCode !== prefix + translationsCode + suffix) {
-        throw new Error('Language file source does not match parsed content.');
-    }
+    const { source: originalSource, translationsCode, translationsCodePosition } = languageChunkInfo;
 
     // Make code modifications using ReplaceSource to automatically update sourcemaps.
     // Note that all positions are relative to the original source, regardless of replacements. Therefor always create
@@ -131,7 +135,7 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
 
     while ((match = TRANSLATION_ENTRY_REGEX.exec(translationsCode)) !== null) {
         const [, matchedTranslationKey, matchedDoubleColon, matchedTranslation] = match;
-        const matchPosition = prefix.length + match.index;
+        const matchPosition = translationsCodePosition + match.index;
         const translationKey = normalizeString(matchedTranslationKey);
         const translationKeyIndex = translationKeyIndexMap[translationKey];
         if (translationKeyIndex === undefined) continue;
@@ -159,7 +163,7 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
     }
 
     // Add fallback translations for missing translations
-    const insertionPosition = prefix.length + translationsCode.length - 1; // before } of translations object
+    const insertionPosition = translationsCodePosition + translationsCode.length - 1; // before } of translations object
     let hasTrailingComma = /,\s*};?$/.test(translationsCode);
     for (const missingTranslationKey of missingTranslations) {
         const translationKeyIndex = translationKeyIndexMap[missingTranslationKey]; // guaranteed to exist
@@ -294,8 +298,3 @@ function matchString(expectedString = null) {
         return `(?:"${escapedString}"|'${escapedString}'|\`${escapedString}\`)`;
     }
 }
-
-module.exports = {
-    parseLanguageFile,
-    processChunks,
-};

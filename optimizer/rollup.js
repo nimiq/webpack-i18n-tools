@@ -4,7 +4,7 @@ const path = require('path');
 // defines internally for webpack-sources.
 const OriginalSource = /** @type {typeof import('webpack5').sources.OriginalSource} */ (
     /** @type {unknown} */ (require('webpack-sources').OriginalSource));
-const { parseLanguageFile, processChunks } = require('./common.js');
+const processChunks = require('./common.js');
 
 /**
  * @typedef {import('rollup').Plugin} RollupPlugin
@@ -60,21 +60,16 @@ module.exports = function rollupI18nOptimizerPlugin() {
                 const languageFileModuleName = moduleIds.find((moduleId) => moduleId.endsWith('.po'));
                 const source = new OriginalSource(fileInfo.code, filename);
                 if (languageFileModuleName) {
-                    try {
-                        if (moduleIds.length > 1) {
-                            throw new Error('Language file parsing currently only supports unbundled files.');
-                        }
-                        languageChunkInfos.push({
-                            filename,
-                            source,
-                            ...parseLanguageChunk(fileInfo.code, fileInfo.modules[languageFileModuleName].code || ''),
-                        });
-                    } catch (e) {
-                        this.error(`Failed to parse language file ${languageFileModuleName}. Note that currently `
-                            + 'bundling of language files is not supported by our rollup plugin. Each language file '
-                            + 'has to be its own chunk.');
+                    if (moduleIds.length > 1) {
+                        this.error('Language file parsing currently only supports unbundled files. '
+                            + 'Each language file has to be its own chunk.');
                         return;
                     }
+                    languageChunkInfos.push({
+                        filename,
+                        source,
+                        moduleCode: fileInfo.modules[languageFileModuleName].code || undefined,
+                    });
                 } else {
                     otherChunkInfos.push({ filename, source });
                 }
@@ -94,31 +89,6 @@ module.exports = function rollupI18nOptimizerPlugin() {
         },
     };
 };
-
-/**
- * @param {string} chunkCode
- * @param {string} moduleCode
- * @returns {{translationsCode: string, translationsJson?: string, prefix: string, suffix: string}}
- */
-function parseLanguageChunk(chunkCode, moduleCode) {
-    const { translationsCode, prefix, suffix } = parseLanguageFile(chunkCode);
-
-    // Rollup modifies the module code when creating the chunk code, which can result in the translationCode not being
-    // valid json, just a Javascript object definition anymore. Notably, this is the case for strings that contain \n
-    // newlines, which rollup transforms into template strings with actual newlines, which are not valid JSON strings
-    // though. Therefore, we extract the json, which is to be parsed later, from the original module code. Note that we
-    // also still need the extracted translation code from the chunk, because that's the code that we modify in the end.
-    // Alternatively, the json or parsed object could also be added as metadata by the loader plugin, which would result
-    // in tighter coupling between the plugins though (https://rollupjs.org/plugin-development/#custom-module-meta-data)
-    const translationsJson = parseLanguageFile(moduleCode).translationsCode;
-
-    return {
-        translationsCode,
-        prefix,
-        suffix,
-        ...(translationsJson !== translationsCode ? { translationsJson } : null),
-    };
-}
 
 /**
  * @param {OutputBundle} outputBundle
