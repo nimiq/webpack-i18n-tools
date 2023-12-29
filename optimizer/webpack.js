@@ -80,12 +80,6 @@ class I18nOptimizerPlugin {
         const pluginName = this.constructor.name;
 
         compiler.hooks.compilation.tap(pluginName, (compilation) => {
-            if (typeof compiler.options.devtool === 'string' && compiler.options.devtool.includes('eval')) {
-                this.emitCompilationError(compilation, `${pluginName} is currently not compatible with eval devtool `
-                    + 'settings. Please use a different setting like `source-map`.');
-                return;
-            }
-
             if (!('options' in compilation) || compilation.options.optimization.realContentHash === false) {
                 // Webpack 4 or Webpack >= 5 with disabled realContentHash.
                 // Augment content hashes of translation files with contents of the source language file. This is
@@ -189,10 +183,7 @@ class I18nOptimizerPlugin {
     getReferenceLanguageModuleHash(compilation) {
         const referenceLanguageModule = [...compilation.modules].find((module) => /\ben\.po$/.test(module.resource));
         if (!referenceLanguageModule) {
-            this.emitCompilationError(
-                compilation,
-                `${this.constructor.name}: Reference language module en.po not found`,
-            );
+            this.emitCompilationError(compilation, 'Reference language module en.po not found');
             return null;
         }
         return 'chunkGraph' in compilation && 'getModuleHash' in compilation.chunkGraph
@@ -209,6 +200,12 @@ class I18nOptimizerPlugin {
         /** @type {{[filename: string]: Source}} */
         const chunks = compilation.assets; // maps filename -> source
 
+        // If devtool is an eval option, e.g. using EvalSourceMapDevToolPlugin or EvalDevToolModulePlugin, the code
+        // is wrapped into a string passed to eval. Within the string, quotes, backslashes and newlines are escaped.
+        // Note that compilation.options already exists in Webpack 4, but is missing in types.
+        const compilationOptions = (/** @type {{options: {devtool?: string}}} */ (compilation)).options;
+        const isEvalWrapped = !!compilationOptions.devtool && compilationOptions.devtool.includes('eval');
+
         // categorize assets and parse language files
         /** @type {LanguageChunkInfo[]} */
         const languageChunkInfos = [];
@@ -216,10 +213,20 @@ class I18nOptimizerPlugin {
         const otherChunkInfos = [];
         for (const [filename, source] of Object.entries(chunks)) {
             if (!filename.endsWith('.js') || filename.includes('chunk-vendors')) continue;
-            if (/-po(?:-legacy)?(?:\.[^.]*)?\.js$/.test(filename)) {
-                languageChunkInfos.push({ filename, source });
+            const languageChunkFilenameMatch = filename.match(/\b(\w{2})-po(?:-legacy)?(?:\.[^.]*)?\.js$/);
+            if (languageChunkFilenameMatch) {
+                const languageCode = languageChunkFilenameMatch[1];
+                const languageModuleFilenameRegex = new RegExp(`\\b${languageCode}\\.po$`);
+                const poModule = [...compilation.modules].find((module) =>
+                    languageModuleFilenameRegex.test(module.resource));
+                if (!poModule) {
+                    this.emitCompilationError(compilation, `Language module ${languageCode}.po not found`);
+                    return;
+                }
+                const moduleCode = poModule._source.source();
+                languageChunkInfos.push({ filename, source, moduleCode, isEvalWrapped });
             } else {
-                otherChunkInfos.push({ filename, source });
+                otherChunkInfos.push({ filename, source, isEvalWrapped });
             }
         }
 
@@ -234,8 +241,7 @@ class I18nOptimizerPlugin {
             let errorMessage = e instanceof Error ? e.message : String(e);
             if (errorMessage.includes('Failed to parse')) {
                 errorMessage += ' Note that currently bundling of language files is not supported by our webpack '
-                    + 'plugin. Each language file has to be its own chunk. Also, using EvalSourceMapDevToolPlugin '
-                    + 'or EvalDevToolModulePlugin is currently not supported.';
+                    + 'plugin. Each language file has to be its own chunk.';
             }
             this.emitCompilationError(compilation, errorMessage);
         }

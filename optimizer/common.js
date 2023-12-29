@@ -9,29 +9,14 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
 
 /**
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
- * @typedef {{filename: string, source: Source}} ChunkInfo
- * @typedef {ChunkInfo & { moduleCode?: string }} LanguageChunkInfo
- * @typedef {LanguageChunkInfo & {
+ * @typedef {{filename: string, source: Source, isEvalWrapped?: boolean }} ChunkInfo
+ * @typedef {ChunkInfo & { moduleCode: string }} LanguageChunkInfo
+ * @typedef {Required<LanguageChunkInfo> & {
  *     translations: Record<string, string>,
  *     translationsCode: string,
  *     translationsCodePosition: number,
  * }} ParsedLanguageChunkInfo
  */
-
-// Groups in this regex are capturing groups as they're used in optimizeLanguageChunk
-const TRANSLATION_ENTRY_REGEX = new RegExp(
-    `([^{,\\s"'\`]+?|${matchString()})` // translation key (either as direct object key or string key)
-    + '(\\s*:\\s*)' // double colon
-    + `(${matchString()})`, // translation with string delimiters
-    'g',
-);
-
-const TRANSLATION_OBJECT_REGEX = new RegExp(
-    '\\{\\s*' // object's opening bracket
-    + `(?:${TRANSLATION_ENTRY_REGEX.source}\\s*,\\s*)*` // arbitrary number of comma separated translation entries
-    + `(?:${TRANSLATION_ENTRY_REGEX.source}\\s*,?\\s*)?` // after last entry, comma is optional. Also allow 0 entries.
-    + '\\s*}', // object's closing bracket
-);
 
 /**
  * @param {LanguageChunkInfo} languageChunk
@@ -40,16 +25,21 @@ const TRANSLATION_OBJECT_REGEX = new RegExp(
 function parseLanguageChunk(languageChunk) {
     const chunkCode = languageChunk.source.source();
     if (typeof chunkCode !== 'string') throw new Error('Failed to parse language file.');
-    const match = chunkCode.match(TRANSLATION_OBJECT_REGEX);
+    const isEvalWrapped = !!languageChunk.isEvalWrapped;
+    const translationObjectRegex = generateTranslationObjectRegex(isEvalWrapped);
+    const match = chunkCode.match(translationObjectRegex);
     if (!match) throw new Error('Failed to parse language file.');
     const translationsCode = match[0];
     const translationsCodePosition = match.index;
-    const translations = JSON5.parse(languageChunk.moduleCode // parse less processed code
-        ? languageChunk.moduleCode.match(TRANSLATION_OBJECT_REGEX)?.[0] || 'null'
-        : translationsCode);
+    const translationObjectRegexNonWrapped = isEvalWrapped
+        ? generateTranslationObjectRegex(false)
+        : translationObjectRegex;
+    // Parse translations from less processed module code.
+    const translations = JSON5.parse(languageChunk.moduleCode.match(translationObjectRegexNonWrapped)?.[0] || 'null');
     if (!translationsCodePosition || !translations) throw new Error('Failed to parse language file.');
     return {
         ...languageChunk,
+        isEvalWrapped,
         translations,
         translationsCode,
         translationsCodePosition,
@@ -63,6 +53,8 @@ function parseLanguageChunk(languageChunk) {
  * @param {(message: string) => void} emitWarning
  */
 module.exports = function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
+    if (!languageChunkInfos.length) return;
+
     const parsedLanguageChunkInfos = languageChunkInfos.map(parseLanguageChunk);
 
     const { missingTranslations, unusedTranslations } = optimizeChunks(parsedLanguageChunkInfos, otherChunkInfos);
@@ -93,9 +85,10 @@ function optimizeChunks(languageChunkInfos, otherChunkInfos) {
     if (!referenceLanguageChunkInfo) throw('English reference language file not found.');
 
     Object.entries(referenceLanguageChunkInfo.translations).forEach(([key, value], index) => {
-        const normalizedKey = normalizeString(key);
+        // Normalize with isEvalWrapped false as eval string literal escape sequences are removed in parsed translations
+        const normalizedKey = normalizeString(key, false);
         translationKeyIndexMap[normalizedKey] = index;
-        fallbackTranslations[normalizedKey] = normalizeString(value);
+        fallbackTranslations[normalizedKey] = normalizeString(value, false);
     });
 
     /** @type {Set<string>} */
@@ -125,18 +118,19 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
     // translation is available.
 
     const missingTranslations = new Set(Object.keys(translationKeyIndexMap));
-    const { source: originalSource, translationsCode, translationsCodePosition } = languageChunkInfo;
+    const { source: originalSource, translationsCode, translationsCodePosition, isEvalWrapped } = languageChunkInfo;
 
     // Make code modifications using ReplaceSource to automatically update sourcemaps.
     // Note that all positions are relative to the original source, regardless of replacements. Therefor always create
     // a new ReplaceSource, even if originalSource is one (which it typically shouldn't be).
     const source = new ReplaceSource(originalSource);
+    const translationEntryRegex = generateTranslationEntryRegex(isEvalWrapped);
     let match;
 
-    while ((match = TRANSLATION_ENTRY_REGEX.exec(translationsCode)) !== null) {
+    while ((match = translationEntryRegex.exec(translationsCode)) !== null) {
         const [, matchedTranslationKey, matchedDoubleColon, matchedTranslation] = match;
         const matchPosition = translationsCodePosition + match.index;
-        const translationKey = normalizeString(matchedTranslationKey);
+        const translationKey = normalizeString(matchedTranslationKey, isEvalWrapped);
         const translationKeyIndex = translationKeyIndexMap[translationKey];
         if (translationKeyIndex === undefined) continue;
         missingTranslations.delete(translationKey);
@@ -157,7 +151,7 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
             source.replace(
                 translationPosition, // start, inclusive
                 translationPosition + matchedTranslation.length - 1, // end, inclusive,
-                `"${fallbackTranslation}"`, // replacement
+                encodeAsStringLiteral(fallbackTranslation, isEvalWrapped), // replacement
             );
         }
     }
@@ -170,37 +164,16 @@ function optimizeLanguageChunk(languageChunkInfo, translationKeyIndexMap, fallba
         const fallbackTranslation = fallbackTranslations[missingTranslationKey] || missingTranslationKey;
         source.insert(
             insertionPosition,
-            `${hasTrailingComma ? '' : ','}${translationKeyIndex}:"${fallbackTranslation}"`,
+            `${hasTrailingComma ? '' : ','}${translationKeyIndex}:${encodeAsStringLiteral(
+                fallbackTranslation,
+                isEvalWrapped,
+            )}`,
         );
         hasTrailingComma = false;
     }
 
     languageChunkInfo.source = source;
 }
-
-const TRANSLATION_USAGE_REGEX_PREFIX_PART = '[$.]t[ec]?\\s*\\(\\s*' // Search for $t / $tc / $te calls
-    + '|' // or
-    // for vue2 compatible vue-i18n <v9 <i18n> interpolation components' paths in vue-template-compiler compiled
-    // template render functions
-    + `${matchString('i18n')}\\s*,.*?` // detected within the i18n component
-    + `(?:attrs|${matchString('attrs')})\\s*:.*?` // attributes which contain
-    + `(?:path|${matchString('path')})\\s*:\\s*` // the path which is the translation key
-    + '|' // or
-    // for vue3 compatible vue-i18n >=v9 <i18n-t> interpolation components' keypath in @vue/compiler-sfc compiled
-    // template render functions
-    + '\\w+\\(\\s*' // vue3's createVNode (which render functions' h is a wrapper for) or createBlock (which is a
-        // private utility similar to createVNode with dynamic children, see vue source code) call, which is minified to
-        // an arbitrary name
-    + '\\w+\\s*,\\s*' // first argument to createVNode/createBlock which is the node type, here i18n-t definition which
-        // gets imported in advance via resolveComponent into a variable which is minified to an arbitrary name
-    + '\\{[^}]*?' // second argument to createVNode/createBlock which is an object containing the prop definitions
-    + `(?:keypath|${matchString('keypath')})\\s*:\\s*`; // the keypath prop definition which is the translation key
-// Match the translation key which is a (potentially concatenated) string
-const TRANSLATION_USAGE_REGEX_TRANSLATION_KEY_PART = `(?:${matchString()}\\s*\\+\\s*)*${matchString()}`;
-const TRANSLATION_USAGE_REGEX = new RegExp(
-    `(${TRANSLATION_USAGE_REGEX_PREFIX_PART})(${TRANSLATION_USAGE_REGEX_TRANSLATION_KEY_PART})`,
-    'gs',
-);
 
 /**
  * @param {ChunkInfo} chunkInfo
@@ -220,12 +193,14 @@ function optimizeTranslationUsages(chunkInfo, translationKeyIndexMap) {
     if (typeof originalCode !== 'string') return { missingTranslations, usedTranslations }; // Binary file.
     // Note that all replacement positions are relative to originalCode, regardless of other replacements.
     const source = new ReplaceSource(chunkInfo.source);
+    const isEvalWrapped = !!chunkInfo.isEvalWrapped;
+    const translationUsageRegex = generateTranslationUsageRegex(isEvalWrapped);
     let match;
 
-    while ((match = TRANSLATION_USAGE_REGEX.exec(originalCode)) !== null) {
+    while ((match = translationUsageRegex.exec(originalCode)) !== null) {
         const [, matchedPrefix, matchedTranslationKey] = match;
         const translationKeyPosition = match.index + matchedPrefix.length;
-        const normalizedTranslationKey = normalizeString(matchedTranslationKey);
+        const normalizedTranslationKey = normalizeString(matchedTranslationKey, isEvalWrapped);
         const translationKeyIndex = translationKeyIndexMap[normalizedTranslationKey];
         if (translationKeyIndex === undefined) {
             missingTranslations.add(normalizedTranslationKey);
@@ -236,8 +211,7 @@ function optimizeTranslationUsages(chunkInfo, translationKeyIndexMap) {
         source.replace(
             translationKeyPosition, // start, inclusive
             translationKeyPosition + matchedTranslationKey.length - 1, // end, inclusive
-            // Replacement. 0 requires string delimiter as 0 otherwise treated as falsy / missing key
-            translationKeyIndex === 0 ? '"0"' : `'${translationKeyIndex.toString()}'`,
+            `'${translationKeyIndex}'`, // replacement
         );
     }
 
@@ -247,6 +221,143 @@ function optimizeTranslationUsages(chunkInfo, translationKeyIndexMap) {
         missingTranslations,
         usedTranslations,
     };
+}
+
+/**
+ * @param {boolean} isEvalWrapped
+ * @returns {RegExp}
+ */
+function generateTranslationEntryRegex(isEvalWrapped) {
+    const str = matchString(null, isEvalWrapped);
+    const ws = matchWhitespace(isEvalWrapped);
+    // Capturing groups in this regex are used in optimizeLanguageChunk
+    return new RegExp(
+        `([^{,\\s"'\`:]+?|${str})` // translation key (either as direct object key or string key)
+        + `(${ws}:${ws})` // double colon
+        + `(${str})`, // translation with string delimiters
+        'g',
+    );
+}
+
+/**
+ * @param {boolean} isEvalWrapped
+ * @returns {RegExp}
+ */
+function generateTranslationObjectRegex(isEvalWrapped) {
+    const ws = matchWhitespace(isEvalWrapped);
+    const translationEntry = generateTranslationEntryRegex(isEvalWrapped).source;
+    return new RegExp(
+        `\\{${ws}` // object's opening bracket
+        + `(?:${translationEntry}${ws},${ws})*` // arbitrary number of comma separated translation entries
+        + `(?:${translationEntry}${ws},?${ws})?` // after last entry, comma is optional. Also allow 0 entries.
+        + `${ws}}`, // object's closing bracket
+    );
+}
+
+/**
+ * @param {boolean} isEvalWrapped
+ * @returns {RegExp}
+ */
+function generateTranslationUsageRegex(isEvalWrapped) {
+    const ws = matchWhitespace(isEvalWrapped);
+    const prefixPart = `[$.]t[ec]?${ws}\\(${ws}` // Search for $t / $tc / $te calls
+        + '|' // or
+        // for vue2 compatible vue-i18n <v9 <i18n> interpolation components' paths in vue-template-compiler compiled
+        // template render functions
+        + `${matchString('i18n', isEvalWrapped)}${ws},.*?` // detected within the i18n component
+        + `(?:attrs|${matchString('attrs', isEvalWrapped)})${ws}:.*?` // attributes which contain
+        + `(?:path|${matchString('path', isEvalWrapped)})${ws}:${ws}` // path which is the translation key
+        + '|' // or
+        // for vue3 compatible vue-i18n >=v9 <i18n-t> interpolation components' keypath in @vue/compiler-sfc compiled
+        // template render functions
+        + `\\w+\\(${ws}` // vue3's createVNode (which render functions' h is a wrapper for) or createBlock (which is a
+        // private utility similar to createVNode with dynamic children, see vue source code) call, which is minified to
+        // an arbitrary name
+        + `\\w+${ws},${ws}` // first argument to createVNode/createBlock which is the node type, here i18n-t definition
+        // which gets imported in advance via resolveComponent into a variable which is minified to an arbitrary name
+        + '\\{[^}]*?' // second argument to createVNode/createBlock which is an object containing the prop definitions
+        + `(?:keypath|${matchString('keypath', isEvalWrapped)})${ws}:${ws}`; // keypath prop definition
+    // Match the translation key which is a (potentially concatenated) string
+    const str = matchString(null, isEvalWrapped);
+    const translationKeyPart = `(?:${str}${ws}\\+${ws})*${str}`;
+    return new RegExp(
+        `(${prefixPart})(${translationKeyPart})`,
+        'gs',
+    );
+}
+
+/**
+ * @param {string | null} expectedString
+ * @param {boolean} isEvalWrapped
+ * @returns {string}
+ */
+function matchString(expectedString, isEvalWrapped) {
+    const lbs = '\\\\'; // single literal backslash; note \\\\ in string becomes \\ in regex which matches a literal \
+    // If code is wrapped in an eval string literal, extra escape backslashes and quotes.
+    const bs = isEvalWrapped ? `${lbs}${lbs}` : lbs; // potentially escaped backslash
+    const q = isEvalWrapped ? `${lbs}"` : '"'; // potentially escaped quote
+    if (expectedString === null) {
+        // Match arbitrary string '...', "..." or `...`, where ... is allowed to include escaped string delimiters.
+        return '(?:'
+            + `'(?:${bs}'|[^'])*?'`
+            + `|${q}(?:${bs}${q}|[^"])*?${q}`
+            + `|\`(?:${bs}\`|[^\`])*?\``
+            + ')';
+    } else {
+        const escapedString = expectedString
+            .replace(/\\/g, bs)
+            .replace(/"/g, q)
+            .replace(/\n/g, `${bs}n`) // Search newlines as \n escape sequences in code.
+            .replace(/[.*+?^${}()|[\]]/g, '\\$&'); // Escape regex special chars, excluding \ already escaped via bs
+        return '(?:'
+            + `'${escapedString.replace(/'/g, `${bs}'`)}'`
+            + `|${q}${escapedString.replace(/"/g, `${bs}"`)}${q}`
+            + `|\`${escapedString.replace(/`/g, `${bs}\``)}\``
+            + ')';
+    }
+}
+
+/**
+ * @param {boolean} isEvalWrapped
+ * @returns {string}
+ */
+function matchWhitespace(isEvalWrapped) {
+    // If code is wrapped in an eval string literal, match literal whitespace escape sequences like \n, \r, \t etc. as
+    // whitespace, see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar.
+    const lbs = '\\\\'; // single literal backslash; note \\\\ in string becomes \\ in regex which matches a literal \
+    return isEvalWrapped ? `(?:\\s|${lbs}[nrtvf])*` : '\\s*';
+}
+
+/**
+ * @param {string} str
+ * @param {boolean} isEvalWrapped
+ * @returns {string}
+ */
+function normalizeString(str, isEvalWrapped) {
+    if (isEvalWrapped) {
+        // Unescape quote and backslash of eval string literal
+        str = str.replace(/\\(["\\])/g, '$1');
+    }
+    return str.replace(/\\n/g, '\n') // unescape newlines
+        .replace(/\\u00a0/g, '\u00a0') // unescape non breaking spaces
+        .replace(/^["'`](.*)["'`]$/gs, '$1') // remove outer string delimiters
+        .replace(/['"`]\s*\+\s*['"`]/g, '') // resolve concatenations
+        .replace(/\\(['"`])/g, '$1'); // unescape inner string delimiter chars
+}
+
+/**
+ * @param {string} str
+ * @param {boolean} isEvalWrapped
+ */
+function encodeAsStringLiteral(str, isEvalWrapped) {
+    str = str.replace(/\n/g, '\\n') // escape newlines
+        .replace(/\u00a0/g, '\\u00a0') // escape non breaking spaces
+        .replace(/(?<!\\)['"`]/g, '\\$&'); // escape inner string delimiter chars
+    if (isEvalWrapped) {
+        // If code is wrapped in an eval string literal, extra escape backslashes and quotes.
+        str = str.replace(/["\\]/g, '\\$&');
+    }
+    return `'${str}'`;
 }
 
 /**
@@ -269,32 +380,5 @@ function reportMissingAndUnusedTranslations(missingTranslations, unusedTranslati
     }
     if (warnMessage) {
         emitWarning(warnMessage);
-    }
-}
-
-/**
- * @param {string} str
- * @returns {string}
- */
-function normalizeString(str) {
-    return str.replace(/['"`]\s*\+\s*['"`]/g, '') // resolve concatenations
-        .replace(/^["'`]|["'`]$/g, '') // remove outer string delimiters
-        .replace(/(?<!\\)(['"`])/g, (match, delimiter) => `\\${delimiter}`) // escape inner string delimiter chars
-        .replace(/\n/g, '\\n') // escape newlines
-        .replace(/\u00a0/g, '\\u00a0'); // escape non breaking spaces
-}
-
-/**
- * @param {string | null} [expectedString]
- * @returns {string}
- */
-function matchString(expectedString = null) {
-    if (expectedString === null) {
-        // match arbitrary string (note \\\\ in string becomes \\ in regex which matches a literal \)
-        return '(?:"(?:\\\\"|[^"])*?"|\'(?:\\\\\'|[^\'])*?\'|`(?:\\\\`|[^`])*?`)';
-    } else {
-        const escapedString = expectedString.replace(/\n/g, '\\n') // Search newlines as \n escape sequences in code.
-            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex special chars.
-        return `(?:"${escapedString}"|'${escapedString}'|\`${escapedString}\`)`;
     }
 }

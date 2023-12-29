@@ -68,7 +68,7 @@ module.exports = function rollupI18nOptimizerPlugin() {
                     languageChunkInfos.push({
                         filename,
                         source,
-                        moduleCode: fileInfo.modules[languageFileModuleName].code || undefined,
+                        moduleCode: fileInfo.modules[languageFileModuleName].code || '',
                     });
                 } else {
                     otherChunkInfos.push({ filename, source });
