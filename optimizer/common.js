@@ -264,16 +264,23 @@ function generateTranslationUsageRegex(isEvalWrapped) {
         + '|' // or
         // for vue2 compatible vue-i18n <v9 <i18n> interpolation components' paths in vue-template-compiler compiled
         // template render functions
-        + `${matchString('i18n', isEvalWrapped)}${ws},.*?` // detected within the i18n component
-        + `(?:attrs|${matchString('attrs', isEvalWrapped)})${ws}:.*?` // attributes which contain
+        + `${matchString('i18n', isEvalWrapped)}${ws},${ws}\\{.*?` // detected within the i18n component
+        + `(?:attrs|${matchString('attrs', isEvalWrapped)})${ws}:${ws}\\{.*?` // attributes which contain
         + `(?:path|${matchString('path', isEvalWrapped)})${ws}:${ws}` // path which is the translation key
         + '|' // or
         // for vue3 compatible vue-i18n >=v9 <i18n-t> interpolation components' keypath in @vue/compiler-sfc compiled
         // template render functions
-        + `\\w+\\(${ws}` // vue3's createVNode (which render functions' h is a wrapper for) or createBlock (which is a
-        // private utility similar to createVNode with dynamic children, see vue source code) call, which is minified to
-        // an arbitrary name
-        + `\\w+${ws},${ws}` // first argument to createVNode/createBlock which is the node type, here i18n-t definition
+        + `[[,]${ws}\\w{1,3}\\(${ws}` // vue3's createVNode (which render functions' h is a wrapper for) or createBlock
+        // (which is a private utility similar to createVNode with dynamic children, see vue source code) call, which is
+        // minified to an arbitrary identifier. To make the regex more efficient we make it more specific by specifying
+        // what char to expect before the identifier and by limiting the length of minified identifiers to 3 chars. This
+        // way, the number of potential match candidates is reduced to avoid the need of unnecessary backtracking in
+        // case of invalid candidates. Previously, we matched \w+ which matched a lot of invalid candidates which could
+        // only be rejected later when the expected ( was not found, or even later when eventually the keypath was not
+        // found, leading to a lot of backtracking. After backtracking, the same search was repeated on the next char
+        // matching \w+ again and eventually backtracked, and so on, resulting in quadratic runtime in the length of the
+        // \w+ match, which can be very long for inlined base64 content, e.g. inlined sourcemaps during dev.
+        + `\\w{1,3}${ws},${ws}` // first argument to createVNode/createBlock which is the node type, here i18n-t definition
         // which gets imported in advance via resolveComponent into a variable which is minified to an arbitrary name
         + '\\{[^}]*?' // second argument to createVNode/createBlock which is an object containing the prop definitions
         + `(?:keypath|${matchString('keypath', isEvalWrapped)})${ws}:${ws}`; // keypath prop definition
