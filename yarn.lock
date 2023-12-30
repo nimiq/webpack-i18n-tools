@@ -2801,7 +2801,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"json5@npm:^2.1.2, json5@npm:^2.2.3":
+"json5@npm:^2.1.2":
   version: 2.2.3
   resolution: "json5@npm:2.2.3"
   bin:
@@ -4843,7 +4843,6 @@ __metadata:
     gettext-extractor: ^3.7.2
     gettext-parser: ^7.0.1
     glob: ^10.2.7
-    json5: ^2.2.3
     loader-utils: ^2.0.4
     parse5-sax-parser: ^7.0.0
     po2json: ^0.4.5

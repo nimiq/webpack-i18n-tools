@@ -33,7 +33,6 @@ const processChunks = require('./common.js');
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
  *
  * @typedef {import('./common').ChunkInfo} ChunkInfo
- * @typedef {import('./common').LanguageChunkInfo} LanguageChunkInfo
  */
 
 /**
@@ -207,24 +206,14 @@ class I18nOptimizerPlugin {
         const isEvalWrapped = !!compilationOptions.devtool && compilationOptions.devtool.includes('eval');
 
         // categorize assets and parse language files
-        /** @type {LanguageChunkInfo[]} */
+        /** @type {ChunkInfo[]} */
         const languageChunkInfos = [];
         /** @type {ChunkInfo[]} */
         const otherChunkInfos = [];
         for (const [filename, source] of Object.entries(chunks)) {
             if (!filename.endsWith('.js') || filename.includes('chunk-vendors')) continue;
-            const languageChunkFilenameMatch = filename.match(/\b(\w{2})-po(?:-legacy)?(?:\.[^.]*)?\.js$/);
-            if (languageChunkFilenameMatch) {
-                const languageCode = languageChunkFilenameMatch[1];
-                const languageModuleFilenameRegex = new RegExp(`\\b${languageCode}\\.po$`);
-                const poModule = [...compilation.modules].find((module) =>
-                    languageModuleFilenameRegex.test(module.resource));
-                if (!poModule) {
-                    this.emitCompilationError(compilation, `Language module ${languageCode}.po not found`);
-                    return;
-                }
-                const moduleCode = poModule._source.source();
-                languageChunkInfos.push({ filename, source, moduleCode, isEvalWrapped });
+            if (/-po(?:-legacy)?(?:\.[^.]*)?\.js$/.test(filename)) {
+                languageChunkInfos.push({ filename, source, isEvalWrapped });
             } else {
                 otherChunkInfos.push({ filename, source, isEvalWrapped });
             }

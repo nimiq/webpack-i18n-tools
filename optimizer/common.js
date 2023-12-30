@@ -1,5 +1,4 @@
 const path = require('path');
-const JSON5 = require('json5');
 // There is currently a discrepancy between the latest @types/webpack-sources and the types that webpack defines
 // internally for webpack-sources. ReplaceSource from webpack-sources is compatible with Webpack 4 and Webpack 5.
 // As it can also be used independently of Webpack, we also use it for our rollup builds, as alternative to magic-string
@@ -10,8 +9,7 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
 /**
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
  * @typedef {{filename: string, source: Source, isEvalWrapped?: boolean }} ChunkInfo
- * @typedef {ChunkInfo & { moduleCode: string }} LanguageChunkInfo
- * @typedef {Required<LanguageChunkInfo> & {
+ * @typedef {Required<ChunkInfo> & {
  *     translations: Record<string, string>,
  *     translationsCode: string,
  *     translationsCodePosition: number,
@@ -19,7 +17,7 @@ const ReplaceSource = /** @type {typeof import('webpack5').sources.ReplaceSource
  */
 
 /**
- * @param {LanguageChunkInfo} languageChunk
+ * @param {ChunkInfo} languageChunk
  * @returns {ParsedLanguageChunkInfo}
  */
 function parseLanguageChunk(languageChunk) {
@@ -27,16 +25,21 @@ function parseLanguageChunk(languageChunk) {
     if (typeof chunkCode !== 'string') throw new Error('Failed to parse language file.');
     const isEvalWrapped = !!languageChunk.isEvalWrapped;
     const translationObjectRegex = generateTranslationObjectRegex(isEvalWrapped);
-    const match = chunkCode.match(translationObjectRegex);
+    let match = chunkCode.match(translationObjectRegex);
     if (!match) throw new Error('Failed to parse language file.');
     const translationsCode = match[0];
-    const translationsCodePosition = match.index;
-    const translationObjectRegexNonWrapped = isEvalWrapped
-        ? generateTranslationObjectRegex(false)
-        : translationObjectRegex;
-    // Parse translations from less processed module code.
-    const translations = JSON5.parse(languageChunk.moduleCode.match(translationObjectRegexNonWrapped)?.[0] || 'null');
-    if (!translationsCodePosition || !translations) throw new Error('Failed to parse language file.');
+    const translationsCodePosition = Number(match.index);
+
+    // Parse translations
+    /** @type {Record<string, string>} */
+    const translations = {};
+    const translationEntryRegex = generateTranslationEntryRegex(isEvalWrapped);
+    while ((match = translationEntryRegex.exec(translationsCode)) !== null) {
+        const [, matchedTranslationKey, , matchedTranslation] = match;
+        const translationKey = normalizeString(matchedTranslationKey, isEvalWrapped);
+        translations[translationKey] = normalizeString(matchedTranslation, isEvalWrapped);
+    }
+
     return {
         ...languageChunk,
         isEvalWrapped,
@@ -47,7 +50,7 @@ function parseLanguageChunk(languageChunk) {
 }
 
 /**
- * @param {LanguageChunkInfo[]} languageChunkInfos
+ * @param {ChunkInfo[]} languageChunkInfos
  * @param {ChunkInfo[]} otherChunkInfos
  * @param {(filename: string, source: Source) => void} updateChunk
  * @param {(message: string) => void} emitWarning
@@ -230,7 +233,7 @@ function optimizeTranslationUsages(chunkInfo, translationKeyIndexMap) {
 function generateTranslationEntryRegex(isEvalWrapped) {
     const str = matchString(null, isEvalWrapped);
     const ws = matchWhitespace(isEvalWrapped);
-    // Capturing groups in this regex are used in optimizeLanguageChunk
+    // Capturing groups in this regex are used in parseLanguageChunk and optimizeLanguageChunk
     return new RegExp(
         `([^{,\\s"'\`:]+?|${str})` // translation key (either as direct object key or string key)
         + `(${ws}:${ws})` // double colon

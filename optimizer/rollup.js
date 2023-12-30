@@ -13,7 +13,6 @@ const processChunks = require('./common.js');
  * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
  *
  * @typedef {import('./common').ChunkInfo} ChunkInfo
- * @typedef {import('./common').LanguageChunkInfo} LanguageChunkInfo
  */
 
 /**
@@ -50,7 +49,7 @@ module.exports = function rollupI18nOptimizerPlugin() {
 
         generateBundle(outputOptions, bundle) {
             // categorize assets and parse language files
-            /** @type {LanguageChunkInfo[]} */
+            /** @type {ChunkInfo[]} */
             const languageChunkInfos = [];
             /** @type {ChunkInfo[]} */
             const otherChunkInfos = [];
@@ -65,11 +64,7 @@ module.exports = function rollupI18nOptimizerPlugin() {
                             + 'Each language file has to be its own chunk.');
                         return;
                     }
-                    languageChunkInfos.push({
-                        filename,
-                        source,
-                        moduleCode: fileInfo.modules[languageFileModuleName].code || '',
-                    });
+                    languageChunkInfos.push({ filename, source });
                 } else {
                     otherChunkInfos.push({ filename, source });
                 }
