@@ -201,11 +201,13 @@ module.exports = async function(writeToFile = true) {
     ]);
 
     try {
+        const rootFolder = process.argv[3] || 'src';
+
         // Parse typescript and javascript files.
-        scriptParser.parseFilesGlob('./src/**/*.{ts,js}');
+        scriptParser.parseFilesGlob(`./${rootFolder}/**/*.{ts,js}`);
 
         // Parse vue files.
-        const vueFiles = glob.sync("./src/**/*.vue");
+        const vueFiles = glob.sync(`./${rootFolder}/**/*.vue`);
         for (const vueFile of vueFiles) {
             const snippets = await parseVueFile(vueFile)
             for (const { code, line } of snippets) {
