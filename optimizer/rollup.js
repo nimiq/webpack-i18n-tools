@@ -1,18 +1,14 @@
 const path = require('path');
-// We also use webpack-sources for our rollup builds, as alternative to magic-string which is usually used in rollup
-// plugins. There is currently a discrepancy between the latest @types/webpack-sources and the types that webpack
-// defines internally for webpack-sources.
-const OriginalSource = /** @type {typeof import('webpack5').sources.OriginalSource} */ (
-    /** @type {unknown} */ (require('webpack-sources').OriginalSource));
-const SourceMapSource = /** @type {typeof import('webpack5').sources.SourceMapSource} */ (
-    /** @type {unknown} */ (require('webpack-sources').SourceMapSource));
+// webpack-sources, which can be used independently of webpack, is used as alternative to magic-string which is usually
+// used in rollup plugins, see common.js.
+const { OriginalSource, SourceMapSource } = require('webpack-sources');
 const processChunks = require('./common.js');
 
 /**
  * @typedef {import('rollup').Plugin} RollupPlugin
  * @typedef {import('rollup').OutputBundle} OutputBundle
  *
- * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
+ * @typedef {import('webpack-sources').Source} Source
  *
  * @typedef {import('./common').ChunkInfo} ChunkInfo
  */

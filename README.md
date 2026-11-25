@@ -1,6 +1,6 @@
 # webpack-i18n-tools
 
-A set of utilities for internationalizing applications or component libraries. These tools are optimized for projects
+A set of utilities for internationalizing applications or component libraries, built with Rollup or Vite. These tools are optimized for projects
 that are internationalized using [vue-i18n](https://kazupon.github.io/vue-i18n/) but are also compatible with frameworks
 which use a similar api as vue-i18n.
 
@@ -24,63 +24,28 @@ The extractor implementation is based on https://gist.github.com/paumoreno/cdfa1
 
 ## Loader
 
-This webpack loader enables imports of `.po` files. The translations in the imported `.po` file are provided as a JSON
-object.
-
-Usage:
-```javascript
-// webpack.config.js:
-module.exports = {
-  module: {
-    rules: [
-      { test: /\.pot?$/, use: 'webpack-i18n-tools' }
-    ]
-  },
-  ...
-};
-
-// Or for projects created via vue-cli:
-module.exports = {
-    chainWebpack: (config) => {
-        config.module
-            .rule('po')
-                .test(/\.pot?$/)
-                .use('po-loader')
-                .loader('webpack-i18n-tools')
-                .end()
-            .end();
-    },
-    ...
-};
-```
+This Rollup / Vite plugin enables imports of `.po` files. The translations in the imported `.po` file are provided as a
+JSON object.
 
 The loader implementation is based on https://github.com/perchlabs/po-loader.
 
 ## Optimizer
 
-This webpack plugin optimizes language files imported via the loader and the usages of contained translations by
+This Rollup / Vite plugin optimizes language files imported via the loader and the usages of contained translations by
 accessing / indexing translations by a short key instead of original long keys. It also adds a fallback for missing
 translations such that no separate fallback / source language file needs to be loaded.
 
-Usage:
+Usage of the loader and optimizer:
 ```javascript
-// webpack.config.js:
-const PoLoaderOptimizer = require('webpack-i18n-tools')();
-module.exports = {
-  plugins: [
-    new PoLoaderOptimizer(),
-  ],
-  ...
-};
+// vite.config.js:
+import poLoader from 'webpack-i18n-tools/loader/rollup';
+import poOptimizer from 'webpack-i18n-tools/optimizer/rollup';
 
-// Or for projects created via vue-cli:
-const PoLoaderOptimizer = require('webpack-i18n-tools')();
-module.exports = {
-    configureWebpack: {
-        plugins: [
-            new PoLoaderOptimizer(),
-        ],
-    },
+export default {
+    plugins: [
+        poLoader(),
+        poOptimizer(),
+    ],
     ...
 };
 ```
