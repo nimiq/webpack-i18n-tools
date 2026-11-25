@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import gettextParser from 'gettext-parser';
+import { po } from 'gettext-parser';
 
 /**
  * Convert language files into JSON files, one JSON file per source file referenced in the language file, such that
@@ -19,13 +19,7 @@ export function convertToJsonLib({ input, outputDir = 'src/i18n' }) {
         const buffer = fs.readFileSync(inputFile);
 
         // Parse the PO file
-        const parsed = gettextParser.po.parse(
-            buffer,
-            // Later versions of gettext-parser expect an options object, but @types/gettext-parser still has the old
-            // type of expecting the default charset as second parameter. Thus, we pass it in a way which is compatible
-            // with both
-            Object.assign('utf8', { defaultCharset: 'utf8' }),
-        );
+        const parsed = po.parse(buffer, { defaultCharset: 'utf8' });
 
         // Create JSON from parsed data
         /** @type {{[translationReferenceFile: string]: {[translationKey: string]: string}}} */
