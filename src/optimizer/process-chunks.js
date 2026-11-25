@@ -1,8 +1,10 @@
-const path = require('path');
+import path from 'node:path';
 // ReplaceSource from webpack-sources, which can be used independently of webpack, is used as alternative to magic-string
 // which is usually used in rollup plugins, because it keeps the mappings of the original sourcemap without generating
 // a high resolution sourcemap for the modified code that needs to be merged with the original sourcemap.
-const { ReplaceSource } = require('webpack-sources');
+import webpackSources from 'webpack-sources';
+
+const { ReplaceSource } = webpackSources;
 
 /**
  * @typedef {import('webpack-sources').Source} Source
@@ -51,7 +53,7 @@ function parseLanguageChunk(languageChunk) {
  * @param {(filename: string, source: Source) => void} updateChunk
  * @param {(message: string) => void} emitWarning
  */
-module.exports = function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
+export function processChunks(languageChunkInfos, otherChunkInfos, updateChunk, emitWarning) {
     if (!languageChunkInfos.length) return;
 
     const parsedLanguageChunkInfos = languageChunkInfos.map(parseLanguageChunk);

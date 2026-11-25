@@ -1,8 +1,10 @@
-const path = require('path');
+import path from 'node:path';
 // webpack-sources, which can be used independently of webpack, is used as alternative to magic-string which is usually
-// used in rollup plugins, see common.js.
-const { OriginalSource, SourceMapSource } = require('webpack-sources');
-const processChunks = require('./common.js');
+// used in rollup plugins, see process-chunks.js.
+import webpackSources from 'webpack-sources';
+import { processChunks } from './process-chunks.js';
+
+const { OriginalSource, SourceMapSource } = webpackSources;
 
 /**
  * @typedef {import('rollup').Plugin} RollupPlugin
@@ -10,13 +12,13 @@ const processChunks = require('./common.js');
  *
  * @typedef {import('webpack-sources').Source} Source
  *
- * @typedef {import('./common').ChunkInfo} ChunkInfo
+ * @typedef {import('./process-chunks.js').ChunkInfo} ChunkInfo
  */
 
 /**
  * @returns {RollupPlugin & {apply: 'build'}}
  */
-module.exports = function rollupI18nOptimizerPlugin() {
+export function poOptimizer() {
     return {
         name: 'po-optimizer',
 
@@ -85,7 +87,7 @@ module.exports = function rollupI18nOptimizerPlugin() {
             }
         },
     };
-};
+}
 
 /**
  * @param {OutputBundle} outputBundle

@@ -1,15 +1,12 @@
 // The library's api as used by the tests.
-import { createRequire } from 'node:module';
 import path from 'node:path';
 
-const require = createRequire(import.meta.url);
-const root = path.resolve(import.meta.dirname, '..');
+const cli = path.resolve(import.meta.dirname, '../src/cli.js');
 
-export const poLoader = require('../loader/rollup.js');
-export const poOptimizer = require('../optimizer/rollup.js');
+export { poLoader, poOptimizer } from 'webpack-i18n-tools';
 
 /** @param {string} outputFile */
-export const extractCommand = (outputFile) => [path.join(root, 'index.js'), outputFile];
+export const extractCommand = (outputFile) => [cli, 'extract', outputFile];
 
 /** @param {string} inputGlob */
-export const jsonLibCommand = (inputGlob) => [path.join(root, 'tools/convertToJsonLib.js'), inputGlob];
+export const jsonLibCommand = (inputGlob) => [cli, 'json-lib', inputGlob];
