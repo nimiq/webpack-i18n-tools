@@ -1,0 +1,74 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: de\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/messages.js:5
+msgid "Hello world"
+msgstr "Hallo Welt"
+
+#: src/messages.js:6
+msgid "Say \"hi\""
+msgstr "Sag \"hallo\""
+
+#: src/messages.js:7
+msgid "It's here"
+msgstr "Es ist hier"
+
+#: src/messages.js:8
+msgid ""
+"First line\n"
+"Second line"
+msgstr ""
+"Erste Zeile\n"
+"Zweite Zeile"
+
+#: src/messages.js:9
+msgid "Non breaking"
+msgstr "Nicht umbrechend"
+
+#: src/messages.js:10
+msgid "Concatenated message"
+msgstr "Verkettete Nachricht"
+
+#: src/messages.js:11
+msgid "Untranslated in German"
+msgstr ""
+
+#: src/messages.js:12
+#, fuzzy
+msgid "Fuzzy entry"
+msgstr "Unscharfer Eintrag"
+
+#: src/messages.js:14
+msgid "Template literal"
+msgstr "Template-Literal"
+
+#: src/messages.js:22
+msgid "{count} apple | {count} apples"
+msgstr "{count} Apfel | {count} Äpfel"
+
+#: src/messages.js:27
+msgid "Interpolated {link}"
+msgstr "Interpoliert {link}"
+
+#: src/messages.js:32
+msgid "Keypath message"
+msgstr "Schlüsselpfad-Nachricht"
+
+#: src/lazy.js:2
+msgid "Lazy message"
+msgstr "Verzögerte Nachricht"
+
+#: src/messages.js:40
+msgid "Unused message"
+msgstr "Unbenutzte Nachricht"
+
+#: src/menu.js:1
+msgctxt "menu"
+msgid "Open"
+msgstr "Öffnen"
+
+#~ msgid "Obsolete message"
+#~ msgstr "Veraltete Nachricht"

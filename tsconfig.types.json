@@ -1,0 +1,14 @@
+{
+    // Generates the type declarations of the public api in types/, which are committed, as the package is used from
+    // git without build step.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": false,
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "rootDir": "src",
+        "outDir": "types"
+    },
+    "include": ["src/index.js", "src/extractor.js", "src/json-lib.js"],
+    "exclude": []
+}

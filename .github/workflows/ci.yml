@@ -1,0 +1,26 @@
+name: CI
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                node-version: ['22', '24', '26']
+        steps:
+            - uses: actions/checkout@v7
+            # Sets up Node.js and Vite+, and installs the dependencies with the package manager defined in package.json.
+            - uses: voidzero-dev/setup-vp@v1.22.0
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  cache: true
+            - name: Format, lint and type check
+              run: vp check
+            - name: Test
+              run: vp test
+            - name: Check that the type declarations are up to date
+              run: vp run types && git diff --exit-code -- types

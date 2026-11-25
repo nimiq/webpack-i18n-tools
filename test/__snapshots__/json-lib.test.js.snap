@@ -1,0 +1,29 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`json lib converter > converts a language file to json files per referenced source file 1`] = `
+{
+  "lazy.js.json": {
+    "Lazy message": "Verzögerte Nachricht",
+  },
+  "menu.js.json": {
+    "menuOpen": "Öffnen",
+  },
+  "messages.js.json": {
+    "Concatenated message": "Verkettete Nachricht",
+    "First line
+Second line": "Erste Zeile
+Zweite Zeile",
+    "Fuzzy entry": "Fuzzy entry",
+    "Hello world": "Hallo Welt",
+    "Interpolated {link}": "Interpoliert {link}",
+    "It's here": "Es ist hier",
+    "Keypath message": "Schlüsselpfad-Nachricht",
+    "Non breaking": "Nicht umbrechend",
+    "Say "hi"": "Sag "hallo"",
+    "Template literal": "Template-Literal",
+    "Untranslated in German": "Untranslated in German",
+    "Unused message": "Unbenutzte Nachricht",
+    "{count} apple | {count} apples": "{count} Apfel | {count} Äpfel",
+  },
+}
+`;

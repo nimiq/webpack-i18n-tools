@@ -1,0 +1,158 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`po optimizer with rolldown > optimizes language files and translation usages > de.js 1`] = `
+"var e={0:\`Hallo Welt\`,1:\`Sag "hallo"\`,2:\`Es ist hier\`,3:\`Erste Zeile
+Zweite Zeile\`,4:\`Nicht\\xA0umbrechend\`,5:\`Verkettete Nachricht\`,6:\`Untranslated in German\`,7:\`Fuzzy entry\`,9:\`Template-Literal\`,10:\`{count} Apfel | {count} Äpfel\`,11:\`Interpoliert {link}\`,12:\`Schlüsselpfad-Nachricht\`,13:\`Verzögerte Nachricht\`,14:\`Unbenutzte Nachricht\`,15:\`Öffnen\`,8:'Missing in German'};export{e as default};
+//# sourceMappingURL=de.js.map"
+`;
+
+exports[`po optimizer with rolldown > optimizes language files and translation usages > en.js 1`] = `
+"var e={0:\`Hello world\`,1:\`Say "hi"\`,2:\`It's here\`,3:\`First line
+Second line\`,4:\`Non\\xA0breaking\`,5:\`Concatenated message\`,6:\`Untranslated in German\`,7:\`Fuzzy entry\`,8:\`Missing in German\`,9:\`Template literal\`,10:\`{count} apple | {count} apples\`,11:\`Interpolated {link}\`,12:\`Keypath message\`,13:\`Lazy message\`,14:\`Unused message\`,15:\`Open\`};export{e as default};
+//# sourceMappingURL=en.js.map"
+`;
+
+exports[`po optimizer with rolldown > optimizes language files and translation usages > lazy.js 1`] = `
+"function e(e){return e.$t('13')}export{e as lazyMessage};
+//# sourceMappingURL=lazy.js.map"
+`;
+
+exports[`po optimizer with rolldown > optimizes language files and translation usages > main.js 1`] = `
+"const e={methods:{messages(){return[this.$t('0'),this.$t('1'),this.$t('2'),this.$t('3'),this.$t('4'),this.$t('5'),this.$t('6'),this.$t('7'),this.$t('8'),this.$t('9'),this.$t(\`Not in language files\`)]}}};function t(e,t){return e.tc('10',t,{count:t})}function n(e){return e(\`i18n\`,{attrs:{path:'11',tag:\`span\`}})}function r(e,t){return[e(t,{keypath:'12',tag:\`p\`})]}const i={en:()=>import(\`./en.js\`),de:()=>import(\`./de.js\`)};async function a(e){return(await i[e]()).default}const o=()=>import(\`./lazy.js\`);export{e as component,t as describeApples,a as loadLanguage,o as loadLazy,n as renderI18nInterpolation,r as renderI18nTKeypath};
+//# sourceMappingURL=main.js.map"
+`;
+
+exports[`po optimizer with rolldown > warns about missing and unused translations 1`] = `
+[
+  "The following translations appear in the bundled code but not in the language files:
+  Not in language files
+The following translations appear in the language files but not in the bundled code:
+  Unused message
+  menuOpen
+
+Please extract the newest language reference file from the source code.",
+]
+`;
+
+exports[`po optimizer with rollup > optimizes language files and translation usages > de.js 1`] = `
+"var de = {0:"Hallo Welt",1:"Sag \\"hallo\\"",2:"Es ist hier",3:"Erste Zeile\\nZweite Zeile",4:"Nicht umbrechend",5:"Verkettete Nachricht",6:"Untranslated in German",7:"Fuzzy entry",9:"Template-Literal",10:"{count} Apfel | {count} Äpfel",11:"Interpoliert {link}",12:"Schlüsselpfad-Nachricht",13:"Verzögerte Nachricht",14:"Unbenutzte Nachricht",15:"Öffnen",8:'Missing in German'};
+
+export { de as default };
+//# sourceMappingURL=de.js.map
+"
+`;
+
+exports[`po optimizer with rollup > optimizes language files and translation usages > en.js 1`] = `
+"var en = {0:"Hello world",1:"Say \\"hi\\"",2:"It's here",3:"First line\\nSecond line",4:"Non breaking",5:"Concatenated message",6:"Untranslated in German",7:"Fuzzy entry",8:"Missing in German",9:"Template literal",10:"{count} apple | {count} apples",11:"Interpolated {link}",12:"Keypath message",13:"Lazy message",14:"Unused message",15:"Open"};
+
+export { en as default };
+//# sourceMappingURL=en.js.map
+"
+`;
+
+exports[`po optimizer with rollup > optimizes language files and translation usages > lazy.js 1`] = `
+"function lazyMessage(vm) {
+    return vm.$t('13');
+}
+
+export { lazyMessage };
+//# sourceMappingURL=lazy.js.map
+"
+`;
+
+exports[`po optimizer with rollup > optimizes language files and translation usages > main.js 1`] = `
+"const component = {
+    methods: {
+        messages() {
+            return [
+                this.$t('0'),
+                this.$t('1'),
+                this.$t('2'),
+                this.$t('3'),
+                this.$t('4'),
+                this.$t('5'),
+                this.$t('6'),
+                this.$t('7'),
+                this.$t('8'),
+                this.$t('9'),
+                this.$t('Not in language files'),
+            ];
+        },
+    },
+};
+
+function describeApples(i18n, count) {
+    return i18n.tc('10', count, { count });
+}
+
+// Like a render function compiled by vue-template-compiler for vue-i18n < 9's <i18n> component.
+function renderI18nInterpolation(_c) {
+    return _c('i18n', { attrs: { path: '11', tag: 'span' } });
+}
+
+// Like a render function compiled by @vue/compiler-sfc for vue-i18n >= 9's <i18n-t> component.
+function renderI18nTKeypath(h, c) {
+    return [h(c, { keypath: '12', tag: 'p' })];
+}
+
+const languages = {
+    en: () => import('./en.js'),
+    de: () => import('./de.js'),
+};
+
+async function loadLanguage(language) {
+    return (await languages[language]()).default;
+}
+
+const loadLazy = () => import('./lazy.js');
+
+export { component, describeApples, loadLanguage, loadLazy, renderI18nInterpolation, renderI18nTKeypath };
+//# sourceMappingURL=main.js.map
+"
+`;
+
+exports[`po optimizer with rollup > warns about missing and unused translations 1`] = `
+[
+  "[plugin po-optimizer] The following translations appear in the bundled code but not in the language files:
+  Not in language files
+The following translations appear in the language files but not in the bundled code:
+  Unused message
+  menu\\u0004Open
+
+Please extract the newest language reference file from the source code.",
+]
+`;
+
+exports[`po optimizer with vite > optimizes language files and translation usages > de.js 1`] = `
+"var e={0:\`Hallo Welt\`,1:\`Sag "hallo"\`,2:\`Es ist hier\`,3:\`Erste Zeile
+Zweite Zeile\`,4:\`Nicht\\xA0umbrechend\`,5:\`Verkettete Nachricht\`,6:\`Untranslated in German\`,7:\`Fuzzy entry\`,9:\`Template-Literal\`,10:\`{count} Apfel | {count} Äpfel\`,11:\`Interpoliert {link}\`,12:\`Schlüsselpfad-Nachricht\`,13:\`Verzögerte Nachricht\`,14:\`Unbenutzte Nachricht\`,15:\`Öffnen\`,8:'Missing in German'};export{e as default};
+//# sourceMappingURL=de.js.map"
+`;
+
+exports[`po optimizer with vite > optimizes language files and translation usages > en.js 1`] = `
+"var e={0:\`Hello world\`,1:\`Say "hi"\`,2:\`It's here\`,3:\`First line
+Second line\`,4:\`Non\\xA0breaking\`,5:\`Concatenated message\`,6:\`Untranslated in German\`,7:\`Fuzzy entry\`,8:\`Missing in German\`,9:\`Template literal\`,10:\`{count} apple | {count} apples\`,11:\`Interpolated {link}\`,12:\`Keypath message\`,13:\`Lazy message\`,14:\`Unused message\`,15:\`Open\`};export{e as default};
+//# sourceMappingURL=en.js.map"
+`;
+
+exports[`po optimizer with vite > optimizes language files and translation usages > lazy.js 1`] = `
+"function e(e){return e.$t('13')}export{e as lazyMessage};
+//# sourceMappingURL=lazy.js.map"
+`;
+
+exports[`po optimizer with vite > optimizes language files and translation usages > main.js 1`] = `
+"var e={methods:{messages(){return[this.$t('0'),this.$t('1'),this.$t('2'),this.$t('3'),this.$t('4'),this.$t('5'),this.$t('6'),this.$t('7'),this.$t('8'),this.$t('9'),this.$t(\`Not in language files\`)]}}};function t(e,t){return e.tc('10',t,{count:t})}function n(e){return e(\`i18n\`,{attrs:{path:'11',tag:\`span\`}})}function r(e,t){return[e(t,{keypath:'12',tag:\`p\`})]}var i=(function(){let e=typeof document<\`u\`&&document.createElement(\`link\`).relList;return e&&e.supports&&e.supports(\`modulepreload\`)?\`modulepreload\`:\`preload\`})(),a=function(e){return\`/\`+e},o={},s=function(e){return e.pathname.endsWith(\`.css\`)},c=function(e,t,n){if(t in e)return e[t];let r=n();if(!r){e[t]=void 0;return}let i=r.then(()=>{e[t]=void 0},n=>{throw e[t]=void 0,n});return e[t]=i,i},l=function(e,t,n){let r=Promise.resolve();if(t&&t.length>0){let e,l=document.querySelector(\`meta[property=csp-nonce]\`),u=l?.nonce||l?.getAttribute(\`nonce\`);function d(e){return Promise.all(e.map(e=>Promise.resolve(e).then(e=>({status:\`fulfilled\`,value:e}),e=>({status:\`rejected\`,reason:e}))))}function f(e){return import.meta.resolve?new URL(import.meta.resolve(e)):new URL(e,import.meta.url)}r=d(t.map(t=>{t=a(t,n);let r=f(t),l=s(r);return c(o,r.href,()=>{if(e===void 0){e={all:new Set,styles:new Set};let t=document.getElementsByTagName(\`link\`);for(let n=t.length-1;n>=0;n--){let r=t[n];e.all.add(r.href),r.rel===\`stylesheet\`&&e.styles.add(r.href)}}if((l?e.styles:e.all).has(r.href))return;let t=document.createElement(\`link\`);if(t.rel=l?\`stylesheet\`:i,l||(t.as=\`script\`),t.crossOrigin=\`\`,t.href=r.href,u&&t.setAttribute(\`nonce\`,u),document.head.appendChild(t),l)return new Promise((e,n)=>{let i=a=>{t.removeEventListener(\`load\`,i),t.removeEventListener(\`error\`,i),a.type===\`error\`?n(Error(\`Unable to preload CSS for \${r}\`)):e(a)};t.addEventListener(\`load\`,i),t.addEventListener(\`error\`,i)})})}).filter(e=>e!==void 0))}function l(e){let t=new Event(\`vite:preloadError\`,{cancelable:!0});if(t.payload=e,window.dispatchEvent(t),!t.defaultPrevented)throw e}return r.then(t=>{for(let e of t||[])e.status===\`rejected\`&&l(e.reason);return e().catch(l)})},u={en:()=>l(()=>import(\`./en.js\`),[]),de:()=>l(()=>import(\`./de.js\`),[])};async function d(e){return(await u[e]()).default}var f=()=>l(()=>import(\`./lazy.js\`),[]);export{e as component,t as describeApples,d as loadLanguage,f as loadLazy,n as renderI18nInterpolation,r as renderI18nTKeypath};
+//# sourceMappingURL=main.js.map"
+`;
+
+exports[`po optimizer with vite > warns about missing and unused translations 1`] = `
+[
+  "The following translations appear in the bundled code but not in the language files:
+  Not in language files
+The following translations appear in the language files but not in the bundled code:
+  Unused message
+  menuOpen
+
+Please extract the newest language reference file from the source code.",
+]
+`;

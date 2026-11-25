@@ -1,0 +1,70 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+#: src/messages.js:5
+msgid "Hello world"
+msgstr ""
+
+#: src/messages.js:6
+msgid "Say \"hi\""
+msgstr ""
+
+#: src/messages.js:7
+msgid "It's here"
+msgstr ""
+
+#: src/messages.js:8
+msgid ""
+"First line\n"
+"Second line"
+msgstr ""
+
+#: src/messages.js:9
+msgid "Non breaking"
+msgstr ""
+
+#: src/messages.js:10
+msgid "Concatenated message"
+msgstr ""
+
+#: src/messages.js:11
+msgid "Untranslated in German"
+msgstr ""
+
+#: src/messages.js:12
+msgid "Fuzzy entry"
+msgstr ""
+
+#: src/messages.js:13
+msgid "Missing in German"
+msgstr ""
+
+#: src/messages.js:14
+msgid "Template literal"
+msgstr ""
+
+#: src/messages.js:22
+msgid "{count} apple | {count} apples"
+msgstr ""
+
+#: src/messages.js:27
+msgid "Interpolated {link}"
+msgstr ""
+
+#: src/messages.js:32
+msgid "Keypath message"
+msgstr ""
+
+#: src/lazy.js:2
+msgid "Lazy message"
+msgstr ""
+
+#: src/messages.js:40
+msgid "Unused message"
+msgstr ""
+
+#: src/menu.js:1
+msgctxt "menu"
+msgid "Open"
+msgstr ""

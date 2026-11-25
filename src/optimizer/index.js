@@ -1,26 +1,25 @@
-const path = require('path');
-// We also use webpack-sources for our rollup builds, as alternative to magic-string which is usually used in rollup
-// plugins. There is currently a discrepancy between the latest @types/webpack-sources and the types that webpack
-// defines internally for webpack-sources.
-const OriginalSource = /** @type {typeof import('webpack5').sources.OriginalSource} */ (
-    /** @type {unknown} */ (require('webpack-sources').OriginalSource));
-const SourceMapSource = /** @type {typeof import('webpack5').sources.SourceMapSource} */ (
-    /** @type {unknown} */ (require('webpack-sources').SourceMapSource));
-const processChunks = require('./common.js');
+import path from 'node:path';
+// webpack-sources, which can be used independently of webpack, is used as alternative to magic-string which is usually
+// used in rollup plugins, see process-chunks.js.
+import webpackSources from 'webpack-sources';
+import { processChunks } from './process-chunks.js';
+
+const { OriginalSource, SourceMapSource } = webpackSources;
 
 /**
- * @typedef {import('rollup').Plugin} RollupPlugin
- * @typedef {import('rollup').OutputBundle} OutputBundle
- *
- * @typedef {import('webpack5').sources.Source} Source - Actually is from webpack-sources, but use types from webpack5
- *
- * @typedef {import('./common').ChunkInfo} ChunkInfo
+ * @import { Plugin, Rollup } from 'vite'
+ * @import { Source } from 'webpack-sources'
+ * @import { ChunkInfo } from './process-chunks.js'
  */
 
 /**
- * @returns {RollupPlugin & {apply: 'build'}}
+ * Plugin for Vite, Rollup and Rolldown, that optimizes the language files imported via the poLoader and the usages of
+ * their translations, by replacing the translation keys by short indices. Missing translations are added to the
+ * language files, with the source language's translation as fallback. The source language file has to be en.po.
+ *
+ * @returns {Plugin}
  */
-module.exports = function rollupI18nOptimizerPlugin() {
+export function poOptimizer() {
     return {
         name: 'po-optimizer',
 
@@ -39,13 +38,11 @@ module.exports = function rollupI18nOptimizerPlugin() {
         // content of the compiled translation file does not only depend on the translation po file, but also on the
         // source language file for added fallback translations and for translation indices.
         augmentChunkHash(chunk) {
-            if (!chunk.facadeModuleId || !/(?<!\ben)\.po$/.test(chunk.facadeModuleId)) return; // not a translation
+            // not a translation
+            if (!chunk.facadeModuleId || !/(?<!\ben)\.po$/.test(chunk.facadeModuleId)) return undefined;
             const referenceLanguageModuleId = [...this.getModuleIds()].find((moduleId) => /\ben\.po$/.test(moduleId));
             const referenceLanguageModuleInfo = this.getModuleInfo(referenceLanguageModuleId || '');
-            if (!referenceLanguageModuleInfo || !referenceLanguageModuleInfo.code) {
-                this.error('Reference language module en.po not found');
-                return;
-            }
+            if (!referenceLanguageModuleInfo?.code) this.error('Reference language module en.po not found');
             return referenceLanguageModuleInfo.code;
         },
 
@@ -66,8 +63,10 @@ module.exports = function rollupI18nOptimizerPlugin() {
                     : new OriginalSource(fileInfo.code, filename);
                 if (languageFileModuleName) {
                     if (moduleIds.length > 1) {
-                        this.error('Language file parsing currently only supports unbundled files. '
-                            + 'Each language file has to be its own chunk.');
+                        this.error(
+                            'Language file parsing currently only supports unbundled files. ' +
+                                'Each language file has to be its own chunk.',
+                        );
                         return;
                     }
                     languageChunkInfos.push({ filename, source });
@@ -82,25 +81,22 @@ module.exports = function rollupI18nOptimizerPlugin() {
                     otherChunkInfos,
                     (filename, source) => updateChunk(bundle, filename, source),
                     (warning) => this.warn(warning),
-                )
+                );
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
                 this.error(errorMessage);
             }
         },
     };
-};
+}
 
 /**
- * @param {OutputBundle} outputBundle
+ * @param {Rollup.OutputBundle} outputBundle
  * @param {string} filename
  * @param {Source} source
  */
 function updateChunk(outputBundle, filename, source) {
-    const { source: code, map } = /** @type {{
-        source: ReturnType<Source['sourceAndMap']>['source'],
-        map: ReturnType<Source['map']>, // map is typed inaccurately as just Object in sourceAndMap
-    }} */ (source.sourceAndMap());
+    const { source: code, map } = source.sourceAndMap();
     if (typeof code !== 'string') return; // should never happen
     const chunkInfo = outputBundle[filename];
     if (chunkInfo.type !== 'chunk') {
@@ -126,9 +122,10 @@ function updateChunk(outputBundle, filename, source) {
 
     // Rollup and Rolldown emit the sourcemap files as assets before generateBundle, therefore updating chunkInfo.map
     // alone does not update the sourcemap file.
-    const sourcemapFileName = 'sourcemapFileName' in chunkInfo && typeof chunkInfo.sourcemapFileName === 'string'
-        ? chunkInfo.sourcemapFileName // since rollup 3.29
-        : `${filename}.map`;
+    const sourcemapFileName =
+        'sourcemapFileName' in chunkInfo && typeof chunkInfo.sourcemapFileName === 'string'
+            ? chunkInfo.sourcemapFileName // since rollup 3.29
+            : `${filename}.map`;
     const sourcemapFile = outputBundle[sourcemapFileName];
     if (sourcemapFile && sourcemapFile.type === 'asset') {
         sourcemapFile.source = sourceMap.toString();
