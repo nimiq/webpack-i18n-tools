@@ -1,0 +1,103 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`extractor > extracts translations from js, ts and vue files 1`] = `
+"msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\\n"
+
+#: src/components/Greeting.vue:4
+msgid "{count} new message | {count} new messages"
+msgstr ""
+
+#: src/components/Greeting.vue:6
+msgid "Clicked"
+msgstr ""
+
+#: src/util.ts:11
+msgid "Escaped \\"quotes\\" and 'apostrophes'"
+msgstr ""
+
+#: src/components/Greeting.vue:15
+msgid "Exists check"
+msgstr ""
+
+#: src/util.ts:8
+msgid "From context.root.$i18n.t"
+msgstr ""
+
+#: src/util.ts:7
+msgid "From context.root.$t"
+msgstr ""
+
+#: src/util.ts:5
+msgid "From i18n.t"
+msgstr ""
+
+#: src/util.ts:6
+msgid "From i18n.tc | From i18n.tc plural"
+msgstr ""
+
+#: src/util.ts:9
+msgid "From root.$t"
+msgstr ""
+
+#: src/components/Greeting.vue:2
+msgid "Greeting title"
+msgstr ""
+
+#: src/components/Greeting.vue:3
+msgid "Hello {name}"
+msgstr ""
+
+#: src/components/Greeting.vue:13
+msgid "Keypath with 'quote'"
+msgstr ""
+
+#: src/components/Greeting.vue:25
+msgid "Label from script"
+msgstr ""
+
+#: src/util.ts:12
+msgid ""
+"Line one\\n"
+"Line two"
+msgstr ""
+
+#: src/components/Greeting.vue:5
+msgid "Logo"
+msgstr ""
+
+#: src/mixin.js:3
+msgid "Message from mixin"
+msgstr ""
+
+#: src/components/Greeting.vue:7
+msgid "Multiline interpolation"
+msgstr ""
+
+#: src/components/Greeting.vue:9
+msgid "Placeholder"
+msgstr ""
+
+#: src/components/Greeting.vue:10
+msgid "Read the {terms}"
+msgstr ""
+
+#: src/components/Greeting.vue:28
+msgid "Root plural | Root plurals"
+msgstr ""
+
+#: src/components/Greeting.vue:4
+msgid "Second on line"
+msgstr ""
+
+#: src/components/Greeting.vue:15
+#: src/util.ts:10
+msgid "Shared message"
+msgstr ""
+
+#: src/components/Greeting.vue:11
+msgid "terms"
+msgstr ""
+"
+`;
