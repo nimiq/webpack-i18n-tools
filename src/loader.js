@@ -2,9 +2,11 @@ import { createFilter } from '@rollup/pluginutils';
 import { po } from 'gettext-parser';
 
 /**
- * @typedef {import('rollup').Plugin} RollupPlugin
- * @typedef {import('@rollup/pluginutils').FilterPattern} FilterPattern
- *
+ * @import { FilterPattern } from '@rollup/pluginutils'
+ * @import { Plugin } from 'vite'
+ */
+
+/**
  * @typedef {object} PoLoaderOptions
  * @property {FilterPattern} [include] - The .po files to transform, by default all.
  * @property {FilterPattern} [exclude] - The .po files not to transform, by default none.
@@ -15,7 +17,7 @@ import { po } from 'gettext-parser';
  * as object of translation keys and translations, see parseTranslations.
  *
  * @param {PoLoaderOptions} [options]
- * @returns {RollupPlugin}
+ * @returns {Plugin}
  */
 export function poLoader(options = {}) {
     const filter = createFilter(options.include, options.exclude);

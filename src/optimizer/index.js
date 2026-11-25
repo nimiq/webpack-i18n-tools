@@ -7,16 +7,17 @@ import { processChunks } from './process-chunks.js';
 const { OriginalSource, SourceMapSource } = webpackSources;
 
 /**
- * @typedef {import('rollup').Plugin} RollupPlugin
- * @typedef {import('rollup').OutputBundle} OutputBundle
- *
- * @typedef {import('webpack-sources').Source} Source
- *
- * @typedef {import('./process-chunks.js').ChunkInfo} ChunkInfo
+ * @import { Plugin, Rollup } from 'vite'
+ * @import { Source } from 'webpack-sources'
+ * @import { ChunkInfo } from './process-chunks.js'
  */
 
 /**
- * @returns {RollupPlugin & {apply: 'build'}}
+ * Plugin for Vite, Rollup and Rolldown, that optimizes the language files imported via the poLoader and the usages of
+ * their translations, by replacing the translation keys by short indices. Missing translations are added to the
+ * language files, with the source language's translation as fallback. The source language file has to be en.po.
+ *
+ * @returns {Plugin}
  */
 export function poOptimizer() {
     return {
@@ -90,15 +91,12 @@ export function poOptimizer() {
 }
 
 /**
- * @param {OutputBundle} outputBundle
+ * @param {Rollup.OutputBundle} outputBundle
  * @param {string} filename
  * @param {Source} source
  */
 function updateChunk(outputBundle, filename, source) {
-    const { source: code, map } = /** @type {{
-        source: ReturnType<Source['sourceAndMap']>['source'],
-        map: ReturnType<Source['map']>, // map is typed inaccurately as just Object in sourceAndMap
-    }} */ (source.sourceAndMap());
+    const { source: code, map } = source.sourceAndMap();
     if (typeof code !== 'string') return; // should never happen
     const chunkInfo = outputBundle[filename];
     if (chunkInfo.type !== 'chunk') {

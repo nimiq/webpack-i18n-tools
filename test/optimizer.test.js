@@ -23,7 +23,8 @@ const bundlers = {
         const warnings = [];
         const bundle = await rollup({
             input,
-            plugins: [poLoader(), poOptimizer()],
+            // The plugins are typed as Vite plugins.
+            plugins: /** @type {import('rollup').Plugin[]} */ (/** @type {unknown} */ ([poLoader(), poOptimizer()])),
             onLog(level, log) {
                 if (level === 'warn' && log.plugin === 'po-optimizer') warnings.push(log.message);
             },

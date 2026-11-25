@@ -151,7 +151,7 @@ function parseVueFile(filename) {
             templateParser.on('startTag', ({ tagName, attrs, sourceCodeLocation }) => {
                 if (!sourceCodeLocation || !('attrs' in sourceCodeLocation)) return;
                 const { attrs: attributeLocations } = (
-                    /** @type {import('parse5').StartTagLocation} */ (sourceCodeLocation));
+                    /** @type {{ attrs: Record<string, { startLine: number }> }} */ (sourceCodeLocation));
                 for (const attr of attrs) {
                     // We're looking for data bindings, events and directives
                     if (attr.name.match(/^(:|@|v-)/)) {

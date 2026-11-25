@@ -7,7 +7,8 @@ compatible with frameworks which use a similar api as vue-i18n.
 
 Despite its name, the library doesn't support webpack anymore.
 
-Requires Node.js 22.17 or newer.
+Requires Node.js 22.17 or newer. Type declarations are included. The plugins are typed as plugins of the installed Vite
+version, therefore Rollup and Rolldown projects without Vite might need to cast them.
 
 ## Installation
 
@@ -105,3 +106,7 @@ convertToJsonLib({ input: 'src/i18n/!(en).po', outputDir: 'src/i18n' });
 
 The project uses [Vite+](https://viteplus.dev/) and pnpm. Install the dependencies via `vp install`, and run the tests
 via `vp test`.
+
+The library is written in JavaScript with types in JSDoc comments, such that it can be used from git without a build
+step. Type check it via `pnpm typecheck`. The type declarations in `types/` are generated from the JSDoc types via
+`pnpm types`, and committed.

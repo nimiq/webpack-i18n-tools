@@ -7,7 +7,10 @@ import webpackSources from 'webpack-sources';
 const { ReplaceSource } = webpackSources;
 
 /**
- * @typedef {import('webpack-sources').Source} Source
+ * @import { Source } from 'webpack-sources'
+ */
+
+/**
  * @typedef {{filename: string, source: Source }} ChunkInfo
  * @typedef {ChunkInfo & {
  *     translations: Record<string, string>,
