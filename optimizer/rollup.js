@@ -4,6 +4,8 @@ const path = require('path');
 // defines internally for webpack-sources.
 const OriginalSource = /** @type {typeof import('webpack5').sources.OriginalSource} */ (
     /** @type {unknown} */ (require('webpack-sources').OriginalSource));
+const SourceMapSource = /** @type {typeof import('webpack5').sources.SourceMapSource} */ (
+    /** @type {unknown} */ (require('webpack-sources').SourceMapSource));
 const processChunks = require('./common.js');
 
 /**
@@ -57,7 +59,11 @@ module.exports = function rollupI18nOptimizerPlugin() {
                 if (fileInfo.type !== 'chunk' || path.basename(filename).startsWith('vendor.')) continue;
                 const moduleIds = Object.keys(fileInfo.modules); // in rollup 2 fileInfo.moduleIds is not available yet
                 const languageFileModuleName = moduleIds.find((moduleId) => moduleId.endsWith('.po'));
-                const source = new OriginalSource(fileInfo.code, filename);
+                // Start from the chunk's sourcemap, if sourcemaps are enabled, such that the mappings to the original
+                // sources are kept.
+                const source = fileInfo.map
+                    ? new SourceMapSource(fileInfo.code, filename, fileInfo.map.toString())
+                    : new OriginalSource(fileInfo.code, filename);
                 if (languageFileModuleName) {
                     if (moduleIds.length > 1) {
                         this.error('Language file parsing currently only supports unbundled files. '
@@ -99,20 +105,32 @@ function updateChunk(outputBundle, filename, source) {
     const chunkInfo = outputBundle[filename];
     if (chunkInfo.type !== 'chunk') {
         chunkInfo.source = code;
-    } else {
-        chunkInfo.code = code;
-        if (!map) return;
-        chunkInfo.map = {
-            // taken from rollup's SourceMap implementation
-            toString() {
-                return JSON.stringify(this);
-            },
-            toUrl() {
-                return 'data:application/json;charset=utf-8;base64,' + btoa(this.toString());
-            },
+        return;
+    }
+    chunkInfo.code = code;
+    if (!map) return;
+    const sourceMap = {
+        // taken from rollup's SourceMap implementation
+        toString() {
+            return JSON.stringify(this);
+        },
+        toUrl() {
+            return 'data:application/json;charset=utf-8;base64,' + btoa(this.toString());
+        },
 
-            ...map,
-            sourcesContent: map.sourcesContent || [],
-        };
+        ...map,
+        file: path.basename(filename), // like rollup, instead of webpack-sources' placeholder
+        sourcesContent: map.sourcesContent || [],
+    };
+    chunkInfo.map = sourceMap;
+
+    // Rollup and Rolldown emit the sourcemap files as assets before generateBundle, therefore updating chunkInfo.map
+    // alone does not update the sourcemap file.
+    const sourcemapFileName = 'sourcemapFileName' in chunkInfo && typeof chunkInfo.sourcemapFileName === 'string'
+        ? chunkInfo.sourcemapFileName // since rollup 3.29
+        : `${filename}.map`;
+    const sourcemapFile = outputBundle[sourcemapFileName];
+    if (sourcemapFile && sourcemapFile.type === 'asset') {
+        sourcemapFile.source = sourceMap.toString();
     }
 }
