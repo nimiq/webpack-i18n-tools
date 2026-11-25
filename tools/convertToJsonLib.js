@@ -41,7 +41,7 @@ for (const inputFile of inputFiles) {
             const translation = translations[translationKey];
 
             if (!translation.comments || !translation.comments.reference) continue;
-            const fuzzy = !!translation.comments.flag.match(/fuzzy/);
+            const fuzzy = !!translation.comments.flag && translation.comments.flag.includes('fuzzy');
             // Extract the reference files (code files that the message strings came from) from the translation comments
             const translationReferenceFiles = translation.comments.reference.split(/\s+/)
                 .map((translationReferenceFile) => translationReferenceFile.replace(/:\d+/g, '')) // strip line numbers
