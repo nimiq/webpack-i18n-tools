@@ -37,16 +37,16 @@ export function convertToJsonLib({ input, outputDir = 'src/i18n' }) {
                 const fuzzy = !!translation.comments.flag && translation.comments.flag.includes('fuzzy');
                 // Extract the reference files (code files that the message strings came from) from the translation
                 // comments
-                const translationReferenceFiles = translation.comments.reference.split(/\s+/)
+                const translationReferenceFiles = translation.comments.reference
+                    .split(/\s+/)
                     .map((translationReferenceFile) => translationReferenceFile.replace(/:\d+/g, '')) // strip lines
                     .filter(Boolean); // filter out empty strings
 
                 for (const translationReferenceFile of translationReferenceFiles) {
                     result[translationReferenceFile] = {
                         ...result[translationReferenceFile],
-                        [namespacedTranslationKey]: !fuzzy && !!translation.msgstr[0]
-                            ? translation.msgstr[0]
-                            : translationKey, // fallback to the message key as translation
+                        [namespacedTranslationKey]:
+                            !fuzzy && !!translation.msgstr[0] ? translation.msgstr[0] : translationKey, // fallback to the message key as translation
                     };
                 }
             }
@@ -57,15 +57,9 @@ export function convertToJsonLib({ input, outputDir = 'src/i18n' }) {
 
         // Write out the JSON files.
         for (const filepath of Object.keys(result)) {
-            const jsonFilename = path.join(
-                langFolder,
-                path.basename(filepath, '.vue') + '.json',
-            );
+            const jsonFilename = path.join(langFolder, path.basename(filepath, '.vue') + '.json');
 
-            fs.writeFileSync(
-                jsonFilename,
-                JSON.stringify(result[filepath], null, 2),
-            );
+            fs.writeFileSync(jsonFilename, JSON.stringify(result[filepath], null, 2));
         }
     }
 

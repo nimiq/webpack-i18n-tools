@@ -63,8 +63,10 @@ const bundlers = {
  * @param {BuildResult['output']} output
  * @returns {OutputChunk[]}
  */
-const getChunks = (output) => /** @type {OutputChunk[]} */ (output.filter(({ type }) => type === 'chunk'))
-    .toSorted((a, b) => a.fileName.localeCompare(b.fileName));
+const getChunks = (output) =>
+    /** @type {OutputChunk[]} */ (output.filter(({ type }) => type === 'chunk')).toSorted((a, b) =>
+        a.fileName.localeCompare(b.fileName),
+    );
 
 describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
     /** @type {BuildResult} */
@@ -88,10 +90,10 @@ describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
         for (const chunk of getChunks(output)) {
             const sourcemapFileName = chunk.sourcemapFileName || `${chunk.fileName}.map`;
             const sourcemapFile = /** @type {OutputAsset | undefined} */ (
-                output.find(({ fileName }) => fileName === sourcemapFileName));
+                output.find(({ fileName }) => fileName === sourcemapFileName)
+            );
             expect(sourcemapFile, sourcemapFileName).toBeDefined();
-            expect(JSON.parse(String(sourcemapFile?.source)), sourcemapFileName)
-                .toEqual(JSON.parse(String(chunk.map)));
+            expect(JSON.parse(String(sourcemapFile?.source)), sourcemapFileName).toEqual(JSON.parse(String(chunk.map)));
         }
     });
 
@@ -111,10 +113,10 @@ describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
                     expect(source, `${chunk.fileName}:${lineIndex + 1}:${match.index}`).toBeTruthy();
                     // All source files of the fixture are directly in its src folder.
                     const sourceFile = path.join(path.dirname(input), path.basename(/** @type {string} */ (source)));
-                    const originalCode = fs.readFileSync(sourceFile, 'utf8')
-                        .split('\n')[/** @type {number} */ (originalLine) - 1];
-                    expect(originalCode, `${chunk.fileName}:${lineIndex + 1}:${match.index}`)
-                        .toMatch(/\$t\(|\.tc\(/);
+                    const originalCode = fs.readFileSync(sourceFile, 'utf8').split('\n')[
+                        /** @type {number} */ (originalLine) - 1
+                    ];
+                    expect(originalCode, `${chunk.fileName}:${lineIndex + 1}:${match.index}`).toMatch(/\$t\(|\.tc\(/);
                     checkedUsages++;
                 }
             }

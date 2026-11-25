@@ -15,18 +15,37 @@ export async function extract({ sourceDir = 'src' } = {}) {
     const extractor = new GettextExtractor();
     const scriptParser = extractor.createJsParser([
         // Place all the possible expressions to extract here:
-        JsExtractors.callExpression([
-            '$t', '[this].$t', 'i18n.t', 'root.$t', 'context.root.$t', '[this].$root.$t', "context.root.$i18n.t",
-            '$tc', '[this].$tc', 'i18n.tc', 'root.$tc', 'context.root.$tc', '[this].$root.$tc', "context.root.$i18n.tc",
-            '$te', '[this].$te', 'i18n.te', 'root.$te', 'context.root.$te', '[this].$root.$te', "context.root.$i18n.te",
-        ], {
-            arguments: {
-                text: 0, // the message is the first argument
+        JsExtractors.callExpression(
+            [
+                '$t',
+                '[this].$t',
+                'i18n.t',
+                'root.$t',
+                'context.root.$t',
+                '[this].$root.$t',
+                'context.root.$i18n.t',
+                '$tc',
+                '[this].$tc',
+                'i18n.tc',
+                'root.$tc',
+                'context.root.$tc',
+                '[this].$root.$tc',
+                'context.root.$i18n.tc',
+                '$te',
+                '[this].$te',
+                'i18n.te',
+                'root.$te',
+                'context.root.$te',
+                '[this].$root.$te',
+                'context.root.$i18n.te',
+            ],
+            {
+                arguments: {
+                    text: 0, // the message is the first argument
+                },
             },
-        }),
-        JsExtractors.callExpression([
-            'I18nMixin.$t'
-        ], {
+        ),
+        JsExtractors.callExpression(['I18nMixin.$t'], {
             arguments: {
                 text: 1, // the message is the second argument
             },
@@ -41,11 +60,7 @@ export async function extract({ sourceDir = 'src' } = {}) {
     const vueFilesSnippets = await Promise.all(vueFiles.map(parseVueFile));
     for (const [index, vueFile] of vueFiles.entries()) {
         for (const { code, line } of vueFilesSnippets[index]) {
-            scriptParser.parseString(
-                code,
-                vueFile,
-                { lineNumberStart: line },
-            );
+            scriptParser.parseString(code, vueFile, { lineNumberStart: line });
         }
     }
 
@@ -68,7 +83,7 @@ const selfClosingTags = [
     'param',
     'source',
     'track',
-    'wbr'
+    'wbr',
 ];
 
 /**
@@ -93,9 +108,7 @@ function parseVueFile(filename) {
 
         // Get the location of the top-level `template` and `script` tags
         htmlParser.on('startTag', ({ tagName, selfClosing, sourceCodeLocation }) => {
-            if (depth === 0
-                && (tagName === 'template' || tagName === 'script')
-                && sourceCodeLocation) {
+            if (depth === 0 && (tagName === 'template' || tagName === 'script') && sourceCodeLocation) {
                 sectionLocations[tagName] = {
                     start: sourceCodeLocation.endOffset,
                     line: sourceCodeLocation.endLine,
@@ -135,10 +148,12 @@ function parseVueFile(filename) {
                 template = content.substring(sectionLocations.template.start, sectionLocations.template.end);
             }
 
-            if (sectionLocations.script
-                && sectionLocations.script.start
-                && sectionLocations.script.end
-                && sectionLocations.script.line) {
+            if (
+                sectionLocations.script &&
+                sectionLocations.script.start &&
+                sectionLocations.script.end &&
+                sectionLocations.script.line
+            ) {
                 snippets.push({
                     code: content.substring(sectionLocations.script.start, sectionLocations.script.end),
                     line: sectionLocations.script.line,
@@ -151,8 +166,9 @@ function parseVueFile(filename) {
             // Look for JS expressions in tag attributes
             templateParser.on('startTag', ({ tagName, attrs, sourceCodeLocation }) => {
                 if (!sourceCodeLocation || !('attrs' in sourceCodeLocation)) return;
-                const { attrs: attributeLocations } = (
-                    /** @type {{ attrs: Record<string, { startLine: number }> }} */ (sourceCodeLocation));
+                const { attrs: attributeLocations } = /** @type {{ attrs: Record<string, { startLine: number }> }} */ (
+                    sourceCodeLocation
+                );
                 for (const attr of attrs) {
                     // We're looking for data bindings, events and directives
                     if (attr.name.match(/^(:|@|v-)/)) {
@@ -166,7 +182,7 @@ function parseVueFile(filename) {
                     if (/^i18n(-t)?$/.test(tagName) && /^:?(key)?path$/.test(attr.name)) {
                         // wrap the path / key in a js snippet including $t for detection by the javascript parser
                         const stringDelimiter = !attr.name.startsWith(':')
-                            ? ['"', '\'', '`'].find((delimiter) => !attr.value.includes(delimiter))
+                            ? ['"', "'", '`'].find((delimiter) => !attr.value.includes(delimiter))
                             : ''; // none required as the value is already a js snippet with strings marked as such
                         const code = `$t(${stringDelimiter}${attr.value}${stringDelimiter})`;
                         snippets.push({
@@ -196,7 +212,7 @@ function parseVueFile(filename) {
                     snippets.push({
                         code,
                         line: sourceCodeLocation.startLine + lineOffset,
-                    })
+                    });
 
                     text = text.substring((exprMatch.index ?? 0) + exprMatch[0].length);
 

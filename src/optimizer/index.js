@@ -63,8 +63,10 @@ export function poOptimizer() {
                     : new OriginalSource(fileInfo.code, filename);
                 if (languageFileModuleName) {
                     if (moduleIds.length > 1) {
-                        this.error('Language file parsing currently only supports unbundled files. '
-                            + 'Each language file has to be its own chunk.');
+                        this.error(
+                            'Language file parsing currently only supports unbundled files. ' +
+                                'Each language file has to be its own chunk.',
+                        );
                         return;
                     }
                     languageChunkInfos.push({ filename, source });
@@ -79,7 +81,7 @@ export function poOptimizer() {
                     otherChunkInfos,
                     (filename, source) => updateChunk(bundle, filename, source),
                     (warning) => this.warn(warning),
-                )
+                );
             } catch (e) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
                 this.error(errorMessage);
@@ -120,9 +122,10 @@ function updateChunk(outputBundle, filename, source) {
 
     // Rollup and Rolldown emit the sourcemap files as assets before generateBundle, therefore updating chunkInfo.map
     // alone does not update the sourcemap file.
-    const sourcemapFileName = 'sourcemapFileName' in chunkInfo && typeof chunkInfo.sourcemapFileName === 'string'
-        ? chunkInfo.sourcemapFileName // since rollup 3.29
-        : `${filename}.map`;
+    const sourcemapFileName =
+        'sourcemapFileName' in chunkInfo && typeof chunkInfo.sourcemapFileName === 'string'
+            ? chunkInfo.sourcemapFileName // since rollup 3.29
+            : `${filename}.map`;
     const sourcemapFile = outputBundle[sourcemapFileName];
     if (sourcemapFile && sourcemapFile.type === 'asset') {
         sourcemapFile.source = sourceMap.toString();

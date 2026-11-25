@@ -9,17 +9,16 @@ describe('json lib converter', () => {
     it('converts a language file to json files per referenced source file', () => {
         const projectDir = createTempDir();
         fs.mkdirSync(path.join(projectDir, 'src/i18n'), { recursive: true });
-        fs.copyFileSync(
-            path.join(fixture('bundle'), 'src/i18n/de.po'),
-            path.join(projectDir, 'src/i18n/de.po'),
-        );
+        fs.copyFileSync(path.join(fixture('bundle'), 'src/i18n/de.po'), path.join(projectDir, 'src/i18n/de.po'));
         execFileSync(process.execPath, jsonLibCommand('src/i18n/de.po'), { cwd: projectDir, stdio: 'pipe' });
 
         const outputDir = path.join(projectDir, 'src/i18n/de');
-        const outputFiles = Object.fromEntries(fs.readdirSync(outputDir).toSorted().map((fileName) => [
-            fileName,
-            JSON.parse(fs.readFileSync(path.join(outputDir, fileName), 'utf8')),
-        ]));
+        const outputFiles = Object.fromEntries(
+            fs
+                .readdirSync(outputDir)
+                .toSorted()
+                .map((fileName) => [fileName, JSON.parse(fs.readFileSync(path.join(outputDir, fileName), 'utf8'))]),
+        );
         expect(outputFiles).toMatchSnapshot();
     });
 });

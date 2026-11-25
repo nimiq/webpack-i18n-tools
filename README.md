@@ -28,11 +28,13 @@ The extractor also supports extracting translations from templates declared in
 [component interpolation](https://vue-i18n.intlify.dev/guide/advanced/component.html).
 
 Usage:
+
 ```bash
 i18n-tools extract <output-language-file> [--source-dir <dir>]
 ```
 
 For example, as a script in `package.json`:
+
 ```json
 {
     "scripts": {
@@ -43,6 +45,7 @@ For example, as a script in `package.json`:
 
 The js, ts and vue files in the source directory, `src` by default, are searched. The extractor can also be used
 programmatically:
+
 ```javascript
 import { extract } from 'webpack-i18n-tools/extractor';
 
@@ -69,16 +72,14 @@ for missing translations such that no separate fallback / source language file n
 file has to be named `en.po`, and each language file has to be imported dynamically, such that it becomes its own chunk.
 
 Usage of the loader and optimizer:
+
 ```javascript
 // vite.config.js
 import { defineConfig } from 'vite';
 import { poLoader, poOptimizer } from 'webpack-i18n-tools';
 
 export default defineConfig({
-    plugins: [
-        poLoader(),
-        poOptimizer(),
-    ],
+    plugins: [poLoader(), poOptimizer()],
 });
 ```
 
@@ -90,12 +91,14 @@ the need to load the entire language file. See Nimiq's [vue-components](https://
 example of such a component library.
 
 Usage:
+
 ```bash
 i18n-tools json-lib "<language file or glob>" [--output-dir <dir>]
 ```
 
 The JSON files of a language file `<language>.po` are written to `<output-dir>/<language>/`, with `src/i18n` as default
 output directory. The converter can also be used programmatically:
+
 ```javascript
 import { convertToJsonLib } from 'webpack-i18n-tools/json-lib';
 

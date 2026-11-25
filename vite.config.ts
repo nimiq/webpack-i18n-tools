@@ -4,6 +4,13 @@ export default defineConfig({
     test: {
         include: ['test/**/*.test.js'],
     },
+    fmt: {
+        ignorePatterns: ['types/**', 'test/fixtures/**', 'test/__snapshots__/**', 'pnpm-lock.yaml'],
+        printWidth: 120,
+        tabWidth: 4,
+        singleQuote: true,
+        sortPackageJson: true,
+    },
     lint: {
         ignorePatterns: ['types/**', 'test/fixtures/**'],
         plugins: ['eslint', 'oxc', 'typescript', 'import', 'node', 'jsdoc', 'unicorn', 'promise', 'vitest'],

@@ -57,9 +57,8 @@ export function parseTranslations(content) {
         for (const [key, translation] of Object.entries(contextTranslations)) {
             if (!context && !key) continue; // the header entry
             const isFuzzy = !!translation.comments?.flag?.includes('fuzzy');
-            result[context ? `${context}\u0004${key}` : key] = isFuzzy || translation.msgstr[0] === ''
-                ? key
-                : translation.msgstr[0];
+            result[context ? `${context}\u0004${key}` : key] =
+                isFuzzy || translation.msgstr[0] === '' ? key : translation.msgstr[0];
         }
     }
     return result;
