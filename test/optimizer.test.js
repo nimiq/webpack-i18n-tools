@@ -3,6 +3,7 @@ import path from 'node:path';
 import { originalPositionFor, TraceMap } from '@jridgewell/trace-mapping';
 import { rolldown } from 'rolldown';
 import { rollup } from 'rollup';
+import { build } from 'vite';
 import { describe, expect, it } from 'vite-plus/test';
 import { poLoader, poOptimizer } from './api.js';
 import { fixture } from './utils.js';
@@ -57,6 +58,39 @@ const bundlers = {
         });
         return { output, warnings };
     },
+    // Vite 8, which rewrites the sourcemaps of chunks with dynamic imports
+    async vite() {
+        /** @type {string[]} */
+        const warnings = [];
+        const result = await build({
+            root: fixture('bundle'),
+            configFile: false,
+            logLevel: 'silent',
+            plugins: [poLoader(), poOptimizer()],
+            build: {
+                write: false,
+                sourcemap: true,
+                minify: true,
+                modulePreload: { polyfill: false },
+                rolldownOptions: {
+                    input,
+                    // Keep the exports, which are otherwise removed in app builds, such that the code is not tree-shaken.
+                    preserveEntrySignatures: 'exports-only',
+                    output: {
+                        entryFileNames: '[name].js',
+                        chunkFileNames: '[name].js',
+                    },
+                    onLog(level, log) {
+                        if (level === 'warn' && log.plugin === 'po-optimizer') warnings.push(log.message);
+                    },
+                },
+            },
+        });
+        const { output } = Array.isArray(result)
+            ? result[0]
+            : /** @type {import('vite').Rolldown.RolldownOutput} */ (result);
+        return { output, warnings };
+    },
 };
 
 /**
@@ -71,22 +105,22 @@ const getChunks = (output) =>
 describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
     /** @type {BuildResult} */
     let result;
-    const build = async () => (result ||= await bundlers[bundlerName]());
+    const buildOnce = async () => (result ||= await bundlers[bundlerName]());
 
     it('optimizes language files and translation usages', async () => {
-        const { output } = await build();
+        const { output } = await buildOnce();
         for (const { fileName, code } of getChunks(output)) {
             expect(code).toMatchSnapshot(fileName);
         }
     });
 
     it('warns about missing and unused translations', async () => {
-        const { warnings } = await build();
+        const { warnings } = await buildOnce();
         expect(warnings).toMatchSnapshot();
     });
 
     it('writes the updated sourcemaps into the sourcemap files', async () => {
-        const { output } = await build();
+        const { output } = await buildOnce();
         for (const chunk of getChunks(output)) {
             const sourcemapFileName = chunk.sourcemapFileName || `${chunk.fileName}.map`;
             const sourcemapFile = /** @type {OutputAsset | undefined} */ (
@@ -98,7 +132,7 @@ describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
     });
 
     it('maps translation usages to their original source lines', async () => {
-        const { output } = await build();
+        const { output } = await buildOnce();
         let checkedUsages = 0;
         for (const chunk of getChunks(output)) {
             if (!chunk.map || chunk.fileName.endsWith('.po.js') || /^(en|de)\.js$/.test(chunk.fileName)) continue;
