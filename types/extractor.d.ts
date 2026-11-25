@@ -10,4 +10,3 @@ import { GettextExtractor } from 'gettext-extractor';
 export declare function extract({ sourceDir }?: {
     sourceDir?: string;
 }): Promise<GettextExtractor>;
-//# sourceMappingURL=extractor.d.ts.map

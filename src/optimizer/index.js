@@ -38,13 +38,11 @@ export function poOptimizer() {
         // content of the compiled translation file does not only depend on the translation po file, but also on the
         // source language file for added fallback translations and for translation indices.
         augmentChunkHash(chunk) {
-            if (!chunk.facadeModuleId || !/(?<!\ben)\.po$/.test(chunk.facadeModuleId)) return; // not a translation
+            // not a translation
+            if (!chunk.facadeModuleId || !/(?<!\ben)\.po$/.test(chunk.facadeModuleId)) return undefined;
             const referenceLanguageModuleId = [...this.getModuleIds()].find((moduleId) => /\ben\.po$/.test(moduleId));
             const referenceLanguageModuleInfo = this.getModuleInfo(referenceLanguageModuleId || '');
-            if (!referenceLanguageModuleInfo || !referenceLanguageModuleInfo.code) {
-                this.error('Reference language module en.po not found');
-                return;
-            }
+            if (!referenceLanguageModuleInfo?.code) this.error('Reference language module en.po not found');
             return referenceLanguageModuleInfo.code;
         },
 

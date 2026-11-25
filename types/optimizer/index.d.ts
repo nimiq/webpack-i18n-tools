@@ -12,4 +12,3 @@ import type { Plugin } from 'vite';
  * @returns {Plugin}
  */
 export declare function poOptimizer(): Plugin;
-//# sourceMappingURL=index.d.ts.map

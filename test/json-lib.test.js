@@ -16,7 +16,7 @@ describe('json lib converter', () => {
         execFileSync(process.execPath, jsonLibCommand('src/i18n/de.po'), { cwd: projectDir, stdio: 'pipe' });
 
         const outputDir = path.join(projectDir, 'src/i18n/de');
-        const outputFiles = Object.fromEntries(fs.readdirSync(outputDir).sort().map((fileName) => [
+        const outputFiles = Object.fromEntries(fs.readdirSync(outputDir).toSorted().map((fileName) => [
             fileName,
             JSON.parse(fs.readFileSync(path.join(outputDir, fileName), 'utf8')),
         ]));

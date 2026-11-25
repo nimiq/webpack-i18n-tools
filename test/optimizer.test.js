@@ -64,7 +64,7 @@ const bundlers = {
  * @returns {OutputChunk[]}
  */
 const getChunks = (output) => /** @type {OutputChunk[]} */ (output.filter(({ type }) => type === 'chunk'))
-    .sort((a, b) => a.fileName.localeCompare(b.fileName));
+    .toSorted((a, b) => a.fileName.localeCompare(b.fileName));
 
 describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
     /** @type {BuildResult} */
@@ -100,7 +100,7 @@ describe.each(Object.keys(bundlers))('po optimizer with %s', (bundlerName) => {
         let checkedUsages = 0;
         for (const chunk of getChunks(output)) {
             if (!chunk.map || chunk.fileName.endsWith('.po.js') || /^(en|de)\.js$/.test(chunk.fileName)) continue;
-            const traceMap = new TraceMap(/** @type {any} */ (JSON.parse(String(chunk.map))));
+            const traceMap = new TraceMap(JSON.parse(String(chunk.map)));
             const lines = chunk.code.split('\n');
             for (const [lineIndex, line] of lines.entries()) {
                 for (const match of line.matchAll(/\$t\(|\.tc\(/g)) {

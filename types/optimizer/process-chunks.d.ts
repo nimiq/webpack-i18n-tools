@@ -15,4 +15,3 @@ export type ParsedLanguageChunkInfo = ChunkInfo & {
  * @param {(message: string) => void} emitWarning
  */
 export declare function processChunks(languageChunkInfos: ChunkInfo[], otherChunkInfos: ChunkInfo[], updateChunk: (filename: string, source: Source) => void, emitWarning: (message: string) => void): void;
-//# sourceMappingURL=process-chunks.d.ts.map

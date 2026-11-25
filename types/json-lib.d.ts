@@ -12,4 +12,3 @@ export declare function convertToJsonLib({ input, outputDir }: {
     input: string;
     outputDir?: string;
 }): string[];
-//# sourceMappingURL=json-lib.d.ts.map

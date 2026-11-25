@@ -37,4 +37,3 @@ export declare function poLoader(options?: PoLoaderOptions): Plugin;
  * @returns {Record<string, string>}
  */
 export declare function parseTranslations(content: string | Buffer): Record<string, string>;
-//# sourceMappingURL=loader.d.ts.map

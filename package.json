@@ -33,7 +33,6 @@
   },
   "packageManager": "pnpm@12.23.0",
   "scripts": {
-    "typecheck": "tsc",
     "types": "tsc -p tsconfig.types.json",
     "test": "vp test"
   },

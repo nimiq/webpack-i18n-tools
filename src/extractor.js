@@ -37,9 +37,10 @@ export async function extract({ sourceDir = 'src' } = {}) {
     scriptParser.parseFilesGlob(`./${sourceDir}/**/*.{ts,js}`);
 
     // Parse vue files.
-    for (const vueFile of fs.globSync(`${sourceDir}/**/*.vue`)) {
-        const snippets = await parseVueFile(vueFile);
-        for (const { code, line } of snippets) {
+    const vueFiles = fs.globSync(`${sourceDir}/**/*.vue`);
+    const vueFilesSnippets = await Promise.all(vueFiles.map(parseVueFile));
+    for (const [index, vueFile] of vueFiles.entries()) {
+        for (const { code, line } of vueFilesSnippets[index]) {
             scriptParser.parseString(
                 code,
                 vueFile,
@@ -185,7 +186,7 @@ function parseVueFile(filename) {
                 let exprMatch;
                 let lineOffset = 0;
 
-                while (exprMatch = text.match(/{{([\s\S]*?)}}/)) {
+                while ((exprMatch = text.match(/{{([\s\S]*?)}}/))) {
                     const code = exprMatch[1];
                     const prevLinesCount = text.substring(0, exprMatch.index).split(/\r\n|\r|\n/).length;
                     const matchedLinesCount = code.split(/\r\n|\r|\n/).length;
@@ -197,7 +198,7 @@ function parseVueFile(filename) {
                         line: sourceCodeLocation.startLine + lineOffset,
                     })
 
-                    text = text.substring(/** @type {number} */ (exprMatch.index) + exprMatch[0].length);
+                    text = text.substring((exprMatch.index ?? 0) + exprMatch[0].length);
 
                     lineOffset += matchedLinesCount - 1;
                 }

@@ -6,10 +6,9 @@
         "noEmit": false,
         "declaration": true,
         "emitDeclarationOnly": true,
-        "declarationMap": true,
         "rootDir": "src",
         "outDir": "types"
     },
-    "include": ["src"],
+    "include": ["src/index.js", "src/extractor.js", "src/json-lib.js"],
     "exclude": []
 }
